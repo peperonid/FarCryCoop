@@ -4,14 +4,20 @@
 
 ## Идентификация игры (правило 5 AGENTS.md)
 
-| | |
-|---|---|
-| Название | Far Cry 3 |
-| Год | 2012 |
-| Магазин | Steam, приложение 220240 |
-| Движок | Dunia (производное CryEngine 1), 32-bit x86 |
-| Версии | **1.05** (депо 220241, манифест `7362101836779063707`, DLL build 2018-05-02, последняя версия с мультиплеером) и **1.06** (текущая Steam/Ubisoft Connect, build 2022-10-03) |
-| Примечание | В игре нет `steam_api.dll`; онлайн-слой — Ubisoft Connect (`upc_r1_loader.dll`). Серверы Ubisoft для FC3 выключены. |
+Наблюдение 2026-11-01 на ПК владельца:
+
+- Магазин: Ubisoft Connect (не Steam), `H:\Uplay\Far Cry 3\`; работает через `upc_r1_loader.dll`
+- **Версия: 1.06** (текущая, build 2022-10-03)
+- SHA-256 `bin\farcry3.exe`: `fd3929f19ff825912f73bd0158604823c46ab9c124d18d57b0fab05a51cda9bb`
+- SHA-256 `bin\farcry3_d3d11.exe`: `5437b2e37a54f8a3b28c342f2b2670ca907fd60bc74905b0b7527f69bafc965e`
+- SHA-256 `bin\FC3.dll`: `71d58a7a4503c5c67dcd6f4b9445b5e7ac34c12043987f4c7285e13f2ed51c9b` (40720424 байта)
+- SHA-256 `bin\FC3_d3d11.dll`: `e541594e11ac6091dc7d3702f2cd90504280b82cf15ec10b4eb148aae27f0809` (40869416 байт)
+- Движок: Dunia
+- Проверка сторонних DLL: в `bin` только файлы самой игры (чистая установка)
+- Тестовая копия: `H:\FarCryCoop\TestFC3\` (правило 3 AGENTS.md)
+- Данные: `data_win32\` ~11GB; `worlds\fc3_main` 4.8GB, `worlds\multicommon` 4.4GB
+
+Хеши совпадают с билдом 1.06, записанным в Bantila.
 
 ## Ответы триажа (playbook/triage.md)
 

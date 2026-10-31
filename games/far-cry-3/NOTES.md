@@ -4,14 +4,20 @@ Status: triage done, deciding next step with owner. Plan: TBA.
 
 ## Game identity (AGENTS.md rule 5)
 
-| | |
-|---|---|
-| Title | Far Cry 3 |
-| Year | 2012 |
-| Store | Steam, app 220240 |
-| Engine | Dunia (CryEngine 1 derivative), 32-bit x86 |
-| Version options | **1.05** (depot 220241, manifest `7362101836779063707`, DLL build 2018-05-02, last version with MP) and **1.06** (current Steam/Ubisoft Connect, build 2022-10-03) |
-| Notes | No `steam_api.dll` in the game; Ubisoft Connect (`upc_r1_loader.dll`) is the online layer. Ubisoft online servers are shut down. |
+Observed 2026-11-01 on the owner's PC:
+
+- Store: Ubisoft Connect (not Steam), `H:\Uplay\Far Cry 3\`; runs through `upc_r1_loader.dll`
+- **Version: 1.06** (current, build 2022-10-03)
+- SHA-256 `bin\farcry3.exe`: `fd3929f19ff825912f73bd0158604823c46ab9c124d18d57b0fab05a51cda9bb`
+- SHA-256 `bin\farcry3_d3d11.exe`: `5437b2e37a54f8a3b28c342f2b2670ca907fd60bc74905b0b7527f69bafc965e`
+- SHA-256 `bin\FC3.dll`: `71d58a7a4503c5c67dcd6f4b9445b5e7ac34c12043987f4c7285e13f2ed51c9b` (40720424 bytes)
+- SHA-256 `bin\FC3_d3d11.dll`: `e541594e11ac6091dc7d3702f2cd90504280b82cf15ec10b4eb148aae27f0809` (40869416 bytes)
+- Engine: Dunia
+- Install checked for third-party DLLs: `bin` holds only the game's own files (FC3.dll, FC3_d3d11.dll, FC3Editor, SandBar, SandDock, binkw32, gpudatabase, systemdetection, upc_r1_loader)
+- Test copy: `H:\FarCryCoop\TestFC3\` (AGENTS.md rule 3)
+- Data: `data_win32\` ~11GB total; `worlds\fc3_main` 4.8GB, `worlds\multicommon` 4.4GB
+
+Hashes match Bantila's recorded 1.06 build exactly.
 
 ## Triage answers (playbook/triage.md)
 
@@ -105,11 +111,51 @@ listen server with single-player rules, and remote players join. The FC3 plan mi
 - [ ] How many players total (2? 3? 4?)?
 - [ ] Do the friends all have Windows PCs with Steam?
 
+## Phase 1 findings (from Bantila/FarCryCoop, 2026-10-24..25)
+
+### Network transport
+- **Network library: Ubisoft Storm** (`storm::echo::session`, `storm::echo::player`, `storm::echo::lan`, `storm::punch`). Sessions have host migration, tickets, join requests, peer routing through the host, NAT traversal.
+- **Online services: Ubisoft RendezVous** (`CGameMatchmakingProvider_RdV`, `CRendezVousInitPunchOperation`, `onlineconfigservice.ubi.com`). **Shut down.**
+- **LAN exists in the engine** (`storm::echo::lan::inEvent::DiscoverSession`, `BroadcastLanDiscovery2`) but the PC game layer never uses it — only `_RdV` online providers.
+- **Join path options:** (A1) ASI hooks `_RdV` providers to answer locally; (A2) local RendezVous emulator; (B) own netcode on the working "Offline coop" session.
+- **Command-line direct connect (developer path):** `-host -login <name> -coop` / `-client -login <name> -ip <addr>`. Session type 3 = local coop (no online). `-offline` shows a debug menu with "COOP Story".
+- **Network config:** `DefaultNetworkConfig.xml` (hash `02E1D1848EC84585`): ports 9000-9004, NAT traversal, LAN discovery tunables, network emulator profiles for lag tests. No `Override*` files exist — we can add `OverrideNetworkConfig.xml`.
+
+### Player service (CFCXPlayerService)
+- Network-replicated component with 4-slot player table. In single-player, slot 0 is the local player.
+- Lua-exposed: `GetNumberOfPlayers()`, `GetPlayerInSlot()`, `CoopGetCharacterName()`, `CoopTeleportPlayer()`.
+- Net messages: `PlayerService_HidePlayerMessage` / `PlayerService_ShowPlayerMessage`.
+- If a puppet pawn is put into slot 1, all co-op Lua boxes see it.
+- Key functions: `FUN_10681070` (count), `FUN_10680ef0` (slot→id), `FUN_10680f90` (name), `FUN_1039e1f0` (component lookup), `FUN_11305eb0` (slot-0 fallback).
+
+### scubrah's mod (Nexus 220)
+- Online co-op on the single-player map: enemy AI, vehicles, outposts, full map, max 8 players.
+- No story missions, ~2 GB download (repacked world archive), alpha 2020-07-10.
+- Proves the engine's co-op session works on the island.
+- Nexus returns 403 without login; owner needs to download.
+
+### Solo Offline Coop mod (Nexus 262)
+- Two DLL edits: `call 0x108c4b09` → 5×NOP (the "not enough players" check).
+- Database: `Local Coop` playlist `minPlayersInRound` 2→1, `matchCountdownInSecs` 0→10.
+- Reference for starting a co-op session without online services.
+- `scripts/patch_dll.py` in the repo reproduces this patch; verified byte-identical to mod 262.
+
+### Archive structure (scubrah's mod vs vanilla)
+- Mod `patch.fat`: 3316 entries (vanilla 427): 2864 world sectors `.fcb`, 404 Lua.
+- Mod `fc3_main_vistas`: 129894 entries, 3 GB (vanilla 13261, 150 MB); ~100000 share hashes with `multicommon`, ~25000 with `fc3_main`, 14309 new.
+
+### Tools
+- **Gibbed.Dunia** with local patch for FAT v9: unpacks FC3 archives.
+- **FCBConverter** (Jakub Marecek): converts `.fcb` to XML and back. Ships 4.1M file names + 483K strings for naming hashes. Needs .NET 7+; runs on portable .NET 8.
+- **REA** (Ghidra 12.1.4 MCP server): `FC3.dll` 40 MB, first analysis ~10 min. `REA_GHIDRA_STARTUP_TIMEOUT_MS=3600000`.
+
 ## TODO
 
 - [ ] Confirm game version and install path with owner
 - [ ] Set up test copy of FC3 (1.05 or 1.06) outside Steam folder
-- [ ] Clone Bantila/FarCry3Coop and review Phase 1 findings
-- [ ] Determine if we join the FarCryCoop project or fork
-- [ ] Phase 2: architecture spike (engine netcode vs own UDP)
-- [ ] Study scubrah's mod for island-in-co-op startup
+- [ ] Phase 2 spike: run `-host`/`-client` with session type 3 on two windows, one PC
+- [ ] Decompile `FUN_106518ba` (host) and `FUN_10651d10` (client) to understand the direct connect path
+- [ ] Decompile `0x108c4b09` to confirm the "not enough players" check hypothesis
+- [ ] Find what creates the session object and fills the slots in the single-player build
+- [ ] Owner downloads scubrah's mod (Nexus 220) for comparison
+- [ ] Phase 3: story script patches for multi-player

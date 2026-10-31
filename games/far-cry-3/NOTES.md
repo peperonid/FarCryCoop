@@ -149,11 +149,46 @@ listen server with single-player rules, and remote players join. The FC3 plan mi
 - **FCBConverter** (Jakub Marecek): converts `.fcb` to XML and back. Ships 4.1M file names + 483K strings for naming hashes. Needs .NET 7+; runs on portable .NET 8.
 - **REA** (Ghidra 12.1.4 MCP server): `FC3.dll` 40 MB, first analysis ~10 min. `REA_GHIDRA_STARTUP_TIMEOUT_MS=3600000`.
 
+## Phase 2 findings (2026-11-01, FC3.dll binary analysis)
+
+**Network stack: Storm (Ubisoft)** — confirmed in FC3.dll strings:
+- `storm echo` — session management (Create, ChangeSessionDescription, SessionTicket)
+- `storm punch` — NAT traversal (ClientImplMainInitParams, ClientImplNetworkInitParams, detectNat, qos punch/traversal)
+- `storm echo` — player events: RequestJoin, AcceptJoinRequest, RefuseJoinRequest, RequestAddPlayer, RemovePlayer, UpdatePlayer
+- `AcceptSessionHostCandidacy` / `RefuseSessionHostCandidacy` — host election
+- `BroadcastLanDiscovery2` — LAN discovery via UDP broadcast
+- `Host disconnected starts host migration` — host migration supported
+- `Listening on host port` — server listen
+- `WS2_32.dll` — Winsock import confirmed
+- `-dedicated` flag — dedicated server mode exists
+- `dedicatedConfig`, `NumPlayers`, `SessionId`, `IsDedicated`, `MapSource`
+
+**Co-op entities in engine:**
+- `CSpawnPointCoop`, `CLocalSpawnPointCoopEntity` — co-op-specific spawn points
+- `CSpawnPointMP`, `CSpawnPointBlue`, `CSpawnPointRed`, `CSpawnPointShared` — MP spawn types
+- `CGRQueryIsCoopGame` — co-op game mode query
+- `FCXCoop` — co-op game mode identifier
+
+**Lobby/session infrastructure:**
+- `CLobbyService`, `CNetGameCtrlEnterLobby`, `CNetGameCtrlStateUpdateLobby`
+- `CSessionSendInviteOperation`, `CSessionAcceptInviteOperation`, `CSessionCancelInviteOperation`
+- `CVotingService`, `CPlaylistService`
+- `CFCXGRStateLobby` — co-op lobby state
+- Connection states: `ResolvingAddress`, `Reaching`, `Connected`, `Dropped`, `Deleted`
+- Error states: `CONNECTION_FAILED`, `CONNECTION_TIMED_OUT`, `KICKED`, `BANNED`, `SESSION_JOIN_TIMED_OUT`, `REFUSED`, `MIGRATION`
+
+**Game modes in FC3.dll:**
+- `Singleplayer.feu`, `Multiplayer` menu, `QuickLaunch.feu`
+- `frontendworld`, `multicommon` — world references
+
+**Conclusion:** The engine has a complete co-op infrastructure (Storm netcode, session management, LAN discovery, host migration, spawn points). The `-host`/`-client` flags and session type 3 (co-op story) should work. The "not enough players" check at `0x108c4b09` is the main gate to bypass for solo/offline play.
+
 ## TODO
 
-- [ ] Confirm game version and install path with owner
-- [ ] Set up test copy of FC3 (1.05 or 1.06) outside Steam folder
-- [ ] Phase 2 spike: run `-host`/`-client` with session type 3 on two windows, one PC
+- [x] Confirm game version and install path with owner (1.06, H:/Uplay/Far Cry 3/)
+- [x] Set up test copy of FC3 outside store folder (H:/FarCryCoop/TestFC3/)
+- [x] Phase 2: verify game launches with -offline (confirmed, main menu shows)
+- [ ] Phase 2: navigate to Co-op menu, start host session, test client connect
 - [ ] Decompile `FUN_106518ba` (host) and `FUN_10651d10` (client) to understand the direct connect path
 - [ ] Decompile `0x108c4b09` to confirm the "not enough players" check hypothesis
 - [ ] Find what creates the session object and fills the slots in the single-player build

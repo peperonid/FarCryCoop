@@ -284,12 +284,24 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
   `0x11f31d75`, `-splitscreen4` `0x11f31d85`, `-world` `0x11fdbf80`, ` -world=fc3_main` `0x11fdbdb1`,
   `optimal_splitscreen` `0x11f76040`, `execLines` `0x11fb4a80`. Value-extraction helper `0x11a1b940`
   (called at `0x11aa3082`, `0x11aa3170`), tokenizer `0x10001e40`, `strchr`-like helper `0x10037dc0`.
-  `-quickstartup` executes hard-coded console lines through executor `0x10002a50` with guard `0x10001ec0`
-  and check `0x10174710` (`gfx_NoLaunchCountdown 1` `0x11fdbc60`, `gfx_NoPostRoundCountdown 1`
+  The collected console lines are `gfx_NoLaunchCountdown 1` `0x11fdbc60`, `gfx_NoPostRoundCountdown 1`
   `0x11fdbc78`, `gfx_NoPreRoundTimeOut 1` `0x11fdbc94`, `multi_DisableInitialSpawnDelay 1` `0x11fdbcac`,
-  `hack_loadOutIsWaitingForMissionBlocks 0` `0x11fdbcd0`; per-command failure branches `0x11aa35e4`..
-  `0x11aa3600`). ⇒ if an arbitrary console line can be routed to `0x10002a50`, a co-op quick-launch can
-  be expressed as command-line console commands instead of memory patches.
+  `hack_loadOutIsWaitingForMissionBlocks 0` `0x11fdbcd0`, plus switch-driven extras `starMatch_with_debugCameras 1`
+  `0x11fdbd10` + `multi_SkipIntroMovie 3` `0x11fdbd30` (from `-debugFramerateCameras` `0x11fdbcf8`) and
+  `cheat_GodMode 2` `0x11fdbd8c` (when `-demoType` `0x11fdbd80` equals `StageDemo` `0x11f9a8a0`, compared
+  with `MSVCR100.dll:_stricmp` `[0x11be1390]` at `0x11aa3741`).
+- **Helper identification (corrects this file's earlier claim that `0x10002a50` was a console executor).**
+  Disassembling the callees: `0x10002a50` = **strlen** (aligned zero-byte scan `lea esi,[ecx+0x7efefeff]`
+  … `test esi,0x81010100` … `sub eax,edx; ret`), `0x10001ec0` = SSO `std::string` assign (`add ecx,0xc;`
+  `call 0x10700c10` memmove into the inline buffer, then `[obj+4] = len`, `[obj+0xc+len] = 0`),
+  `0x10037dc0` = aligned alloc/resize helper, `0x10174710` = heap free, `0x11788480` / `0x11790540` =
+  `std::string` bookkeeping that store vftables `0x128ac3f4` / `0x128ac450` into the container control
+  global `0x12829424`. `0x11a1b940` (60 call sites) = "find `<switch>` in the command line, take the text
+  after it, store it in an SSO string": two `strstr` calls (`[0x11be1618]`) + `strlen` + assign, with `"`
+  (byte `0x22`) quote handling and a space (`0x20`, table at `0x11f31df8`) token split via `0x10003f40`.
+  ⇒ `-exec` / `-execline` values are **collected** into the execLines container (`0x12829424`), not executed
+  in the launcher. The execution step is the engine's execLines consumer (`FC3.dll` session field
+  `execLines` `0x11f90af0`, registered at `0x113429ca`) — the next probe target.
 - **Console-command vocabulary (`FC3.dll` `Game` table, `0x111cd3f5`..`0x111cf52f`).** Co-op-relevant
   entries with their name strings: `MissionSetState` `0x11fbd98c`, `Exec` `0x11fbda40`, `SaveGame`
   `0x11fbda48`, `SetTimeOfDay` `0x11fbda30`, `TeleportToCurrentObjective` `0x11fbda7c`, `TeleportToSpawnPoint`
@@ -298,12 +310,33 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
   `GetCurrentPrimaryBuddy` `0x11fbdc54`, `SetCurrentPrimaryBuddy` `0x11fbdc3c`, `SendGlobalChatMessage`
   `0x11fbd9ec`, `SendTeamChatMessage` `0x11fbda04`, `RefillPlayerAmmo` `0x11fbd9a8`, `AIDebugTool`
   `0x11fbd99c`, `ChangeFOV` `0x11fbdd00`.
-- **Session-operation fields (`FC3.dll` around `0x113423e0`..`0x11342a60`).** Field-registration helpers
-  `0x11ab6750` / `0x11ab6ac0` / `0x11ab6800`; names registered: `FollowHost` `0x11f90cd8`,
-  `DoNATTypeDetection` `0x11f90ce4`, `execLines` `0x11f90af0` (pushed at `0x113429ca`), `map` `0x11f8d78c`,
-  `mapIdLow` `0x11f90afc`, `mapIdHigh` `0x11f90b08`, `versionIdHigh` `0x11f90b14`, `versionIdLow`
-  `0x11f90b24`. `execLines` being a session-operation field is the strongest link between the command
-  line and a co-op session request.
+- **Session-operation fields (`FC3.dll` registration function `0x11342740`, `0x11342758`..`0x11342a73`).**
+  Field-registration helpers `0x11ab6750` / `0x11ab6ac0` / `0x11ab6800`; full name set registered in this
+  one function: `SearchIdAddress` `0x11f90b78`, `SearchSessionId` `0x11f90b88`, `JoinGame` `0x11f90b98`,
+  `JoinService` `0x11f90ba4`, `JoinSessionId` `0x11f90bb0`, `DeleteSessionId` `0x11f90bc0`,
+  `DeleteMessageId` `0x11f90bd0`, `PlaylistId` `0x11f90be0`, `MatchMakingEnabled` `0x11f90bec`,
+  `SessionRefId` `0x11f90c00`, `SessionType` `0x11f90c10`, `NetEngineType` `0x11f90c1c`,
+  `AccountType` `0x11f90c2c`, `SearchRanked` `0x11f90c38`, `SearchRetries` `0x11f90c48`,
+  `SearchSlots` `0x11f90c58`, `SearchNeedSlots` `0x11f90c64`, `SearchGameModes` `0x11f90c74`,
+  `Silent` `0x11f90c84`, `DeleteCurrent` `0x11f90c8c`, `WasInvited` `0x11f90c9c`,
+  `EmulatorProfileId` `0x11f90ca8`, `UseTicketRequestAttachment` `0x11f90cbc`, `FollowHost` `0x11f90cd8`,
+  `DoNATTypeDetection` `0x11f90ce4`, then `execLines` `0x11f90af0` (pushed at `0x113429ca`), `map`
+  `0x11f8d78c` (`0x11342a04`), `mapIdLow` `0x11f90afc`, `mapIdHigh` `0x11f90b08`, `versionIdHigh`
+  `0x11f90b14`, `versionIdLow` `0x11f90b24`, `mapIdType` `0x11f90b34`, `bfname` `0x11f90b40`
+  (`0x11342a73`). String VA → code reference counts: `execLines` has exactly **one** reference in
+  `FC3.dll` (the `push imm8` at `0x113429ca`), and `Exec` `0x11fbda40` exactly one (`push imm8` at
+  `0x111cf4dd`), so this table is the registration site, not a dispatch site.
+  `execLines` being a session-operation field, registered immediately before `map`/`mapId*`/`bfname`, is
+  the strongest link between the command line and a co-op session request: those are exactly the
+  parameters a session-creation call needs.
+- **ExecLines container is a global singleton (`FC3_d3d11.dll`).** A raw byte scan of `.text` for the
+  disp32 `24 94 82 12` (0x12829424 in little-endian) gives **17 502 access sites**, overwhelmingly
+  `8b 0d` (`mov r32,[g]`) pairs ~12 bytes apart — the `mov ecx,[g]` / `call fn` idiom — i.e. this global
+  is the manager object used as `this` by thousands of calls; only two construction-shaped writes
+  (`c7 05` at `0x1178846e` and at `0x118e82fd`). Lesson recorded the hard way: a VA is written in
+  **little-endian** in the image (`0x12829424` → `24 94 82 12`); searching for the reversed byte order
+  (or computing blob offsets with VA arithmetic instead of `file offset − section raw pointer`) produces
+  false "0 matches" results.
 - Tooling note: `capstone` (5.0.9, installed with `python -m pip install capstone`; the `pip` launcher is
   broken on this machine) plus `tools/fc3_dis.py` (annotated x86 disassembly), `tools/fc3_iat_reverse.py`
   (IAT reverse map), `tools/fc3_strgrep.py` (.rdata string grep) replace Ghidra for read-only work; those
@@ -332,6 +365,13 @@ arguments. Both need a decision from the owner.
   `-execline` are parsed by the game DLL itself (see the console-command section below)
 - [ ] Decide whether option (b) can be replaced by arg injection through `-exec` / `-execline`
   (needs: which consumer executes the extracted string, and whether `Exec` `0x11fbda40` is reachable at launch)
+  — progress: `execLines` is now known to be a **session-operation parameter** registered at
+  `FC3.dll 0x113429ca` next to `map`/`mapId*`/`bfname`, and the `-exec` values land in the global
+  container `0x12829424`; still unproven: which call consumes that container at session start.
+- [ ] Fix `tools/fc3_reloc_xref.py`: its premise (disp32 global accesses need reloc walking) is wrong —
+  disp32 fields in `.text` are not relocation entries, so reloc lookups return 0. Replace the reloc-table
+  walk with a byte scan for the little-endian VA plus the ModRM forms (`8b/89/8d/83/81 + [05 0d 15 …]`,
+  `c7 05`, `ff 35`).
 - [ ] Enumerate the rest of the `Game.*` console-command table (`0x111cd3f5`..`0x111cf52f`) and find a
   command that starts or joins a co-op session (`MissionSetState`, `SaveGame`, `Exec`, `RunBatch`)
 - [ ] Find the file behind `HubUtils.cpp (208) Test/dev args file present.` in the Ubisoft Connect log

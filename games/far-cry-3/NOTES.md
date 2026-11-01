@@ -284,6 +284,40 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
   `0x11f31d75`, `-splitscreen4` `0x11f31d85`, `-world` `0x11fdbf80`, ` -world=fc3_main` `0x11fdbdb1`,
   `optimal_splitscreen` `0x11f76040`, `execLines` `0x11fb4a80`. Value-extraction helper `0x11a1b940`
   (called at `0x11aa3082`, `0x11aa3170`), tokenizer `0x10001e40`, `strchr`-like helper `0x10037dc0`.
+  Full contiguous switch block verified by byte search in BOTH 1.06 files (`FC3_d3d11.dll` / `FC3.dll`):
+  `-nocompile` `0x11fdbbd8`/`0x11fb7d08`, `-runscriptindebug` `0x11fdbbe4`/`0x11fb7d14`,
+  **`-disableplayersetuponquicklaunch`** `0x11fdbbf8`/`0x11fb7d28`, `-perfhud` `0x11fdbc1c`/`0x11fb7d4c`,
+  `-logFile` `0x11fdbc28`/`0x11fb7d58`, `-bfname` `0x11fdbc34`/`0x11fb7d64`, `-execline` `0x11fdbc3c`/`0x11fb7d6c`,
+  `-exec` `0x11fdbc48`/`0x11fb7d78`, `-quickstartup` `0x11fdbc50`/`0x11fb7d80`, `-debugFramerateCameras`
+  `0x11fdbcf8`/`0x11fb7e28`, `-demoType` `0x11fdbd80`/`0x11fb7eb0`, `-tracking`/`-trackingextension`/
+  `-forcevip`/`-closedbeta` (only in `FC3.dll`: `0x11fb7e78`, `0x11fb7e84`, `0x11fb7e98`, `0x11fb7ea4`),
+  `-benchmark` `0x11fdbe4c`, `-quickmatch` `0x11fdbe58`, `-load` `0x11fdbe64`, `-wait` `0x11fdbe6c`,
+  `-world` `0x11fdbe80`, `-class` `0x11fdbe88`, `-spawn` `0x11fdbe90`, `-spawnpos` `0x11fdbe98`,
+  `-spawnangle` `0x11fdbea4`, `-map` `0x11fdbeb0`, `-benchmarkinputname` `0x11fdbec4`.
+  A benchmark usage string exists: `Invalid parameters for -benchmark. Ex; -benchmark {playback|record|
+  sectors|spawnpoints|path} -world worldname -map mapname` (`0x11fdbed8` / `0x11fb8008`) — proof that
+  `-world`+`-map` are accepted on the command line. Switches NOT present in 1.06 (exact-string search,
+  both files): `-hostmaster`, `-hostgame`, `-dedicator`, `-profile`, `-quickdebug`, `-demo`, `-devfolder`,
+  `-profilefolder`, `-gametype`, `-gamemode`, `-mapname`, `-mapId`, `-stageName`, `-stageOffset`,
+  `-stageSize`, `-save`, `-log`.
+- FC3.dll 1.06 carries the SAME switch machinery, at its own addresses (verified by byte scan of the
+  little-endian string VA in `.text`) (VA = file offset + 0xc00 for this binary's `.text`): the launcher
+  function spans `0x11a8cf90`..`0x11a8d103`; `-host` `0x11f0e6ac` is referenced at VAs `0x117a6139`,
+  `0x117a6794`, `0x11a8c90c`, `0x11a8cf07`, `0x11a8f657`; `-client` `0x11f0e748` at `0x117a67a2`,
+  `0x11a8cfc3`, `0x11a8f67f`; `-disableplayersetuponquicklaunch` `0x11fb7d28` at `0x11a8c3b0`
+  and `0x11a8e624`. The bytes at those sites are the push immediates (`ac e6 f0 11` / `28 7d fb 11`). FC3.dll's strstr import slot is
+  `[0x11bcb5c0] = MSVCR100.dll:strstr`, used by the validity helper `0x11a8b8c0` which pushes
+  `-online` `0x11fb8234`, `-login` `0x11fb8170` and the error string `'Missing -login or -online for
+  -quickmatch.'` `0x11fb82d8` → the `-quickmatch` handler validates that `-login`+`-online` are present.
+  **This confirms FC3.dll itself contains the multi-player launch-argument validation layer, and the
+  `-quickmatch` route requires `-login` + `-online`.** In `-quickmatch`/`-host` handling
+  (`0x11a8d0c5`..`0x11a8d0eb`): `lea edx,[ebp+8]; call 0x11341dc0` (returns a session-interface object),
+  `mov ecx,[eax]; mov eax,[ecx]; mov eax,[eax+0x74]; push edx; call eax` — a **vftable slot 0x74** call on
+  that object with an out-parameter `[ebp+0x10]`, then `call 0x10005570` (destructor) and `jmp 0x11a8cf90`.
+  The failure path calls `0x11343640`, a destructor that writes the vftable `0x11f90644` (same page as the
+  session-operation field strings `execLines` `0x11f90af0`) and frees the fields at `[obj+0x98]`, `[obj+0x9c]`
+  ⇒ the object IS the session object. So the session-creation call is **vftable slot 0x74** of the object
+  returned by `0x11341dc0` — the exact target a quick-launch/`-exec` route must reach.
   The collected console lines are `gfx_NoLaunchCountdown 1` `0x11fdbc60`, `gfx_NoPostRoundCountdown 1`
   `0x11fdbc78`, `gfx_NoPreRoundTimeOut 1` `0x11fdbc94`, `multi_DisableInitialSpawnDelay 1` `0x11fdbcac`,
   `hack_loadOutIsWaitingForMissionBlocks 0` `0x11fdbcd0`, plus switch-driven extras `starMatch_with_debugCameras 1`

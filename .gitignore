@@ -5,3 +5,7 @@ local/
 games/*/tools/
 .playwright-mcp/
 games/far-cry/crygame/
+
+# Analysis scripts (capstone disassembler, IAT maps) stay local / Скрипты анализа остаются локально
+tools/
+tools/fc3_dis_cache.json

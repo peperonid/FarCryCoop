@@ -337,6 +337,31 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
   ⇒ `-exec` / `-execline` values are **collected** into the execLines container (`0x12829424`), not executed
   in the launcher. The execution step is the engine's execLines consumer (`FC3.dll` session field
   `execLines` `0x11f90af0`, registered at `0x113429ca`) — the next probe target.
+- **Container-global reference count and construction sites (verified 2026-11-02).** A little-endian scan of
+  `FC3_d3d11.dll .text` for the byte pattern `24 94 82 12` finds **17 332** references to the global
+  `0x12829424`, confirming it is a real singleton used throughout the launcher. Exactly two sites write an
+  immediate class pointer into it: `c7 05 24 94 82 12 f4 c3 8a 12` at `0x1178846e` and again at `0x118e82fd`
+  (value `0x128ac3f4`, i.e. `f4 c3 8a 12` little-endian). All other 17 330 references are reads
+  (`8b/89/8d/83/81 … [0x12829424]`, `ff 35`), i.e. normal member access of one global object.
+- **Complete host/client netblock (VERIFIED 2026-11-02, contiguous `.rdata` run, both 1.06 binaries).**
+  `FC3_d3d11.dll 0x11fdc02c`..`0x11fdc150` and `FC3.dll 0x11fad15c`..`0x11fad308` mirror the same order:
+  `-keyonline` `0x11fdc02c`/`0x11fad15c`, test value `a123456` `0x11fdc038`, `-login` `0x11fdc040`,
+  `-login2` `0x11fdc048`, `-login3` `0x11fdc050`, `-login4` `0x11fdc058`, `-password2` `0x11fdc060`,
+  `-password3` `0x11fdc06c`, `-password4` `0x11fdc078`, `Invalid parameters for -host, missing (-login)`
+  `0x11fdc084`/`0x11fad1b4`, `-sessionuid` `0x11fdc0b4`/`0x11fad1e4`, `-deathmatch` `0x11fdc0c0`,
+  `-coop` `0x11fdc0cc`, `-domination` `0x11fdc0d4`, `-headquarters` `0x11fdc0e0`, `-firestorm` `0x11fdc0f0`,
+  `-dash` `0x11fdc0fc`, `-online` `0x11fdc104`, `-netemulator` `0x11fdc10c`, `-ranked` `0x11fdc11c`,
+  `-ip` `0x11fdc124`, `Missing -login or -ip for -client.` `0x11fdc128`, `Trying to launch an online client, but
+  missing password (-password) or online key settings (-keyonline)` `0x11fdc1d8` (referenced at code VAs
+  `0x11aa085f`, `0x11aa086f`), then the net-engine state names `ENetEngineState_Error` `0x11fdc240`,
+  `ENetEngineState_Initialized_Offline` `0x11fdc258`, `ENetEngineState_Initializing_Offline` `0x11fdc27c`.
+  ⇒ 1.06 accepts `-host <world> -login … -coop … -online [-ip <addr>]` on the command line; the
+  game-mode words (`-coop`, `-deathmatch`, `-domination`, `-headquarters`, `-firestorm`, `-dash`) are switches,
+  not menu names.
+- **`-quickmatch` validation (`FC3.dll`).** Helper `0x11a8b8c0` uses strstr via IAT `[0x11bcb5c0]`
+  (`MSVCR100.dll:strstr`), pushes `-online` `0x11fb8234` and `-login` `0x11fb8170`, and on failure prints
+  `Missing -login or -online for -quickmatch.` `0x11fb82d8` (FC3_d3d11 twin `0x11fdc1a8`) ⇒ `-quickmatch`
+  requires `-login` **and** `-online`.
 - **Console-command vocabulary (`FC3.dll` `Game` table, `0x111cd3f5`..`0x111cf52f`).** Co-op-relevant
   entries with their name strings: `MissionSetState` `0x11fbd98c`, `Exec` `0x11fbda40`, `SaveGame`
   `0x11fbda48`, `SetTimeOfDay` `0x11fbda30`, `TeleportToCurrentObjective` `0x11fbda7c`, `TeleportToSpawnPoint`

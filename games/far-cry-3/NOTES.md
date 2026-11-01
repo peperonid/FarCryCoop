@@ -295,8 +295,9 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
   … `test esi,0x81010100` … `sub eax,edx; ret`), `0x10001ec0` = SSO `std::string` assign (`add ecx,0xc;`
   `call 0x10700c10` memmove into the inline buffer, then `[obj+4] = len`, `[obj+0xc+len] = 0`),
   `0x10037dc0` = aligned alloc/resize helper, `0x10174710` = heap free, `0x11788480` / `0x11790540` =
-  `std::string` bookkeeping that store vftables `0x128ac3f4` / `0x128ac450` into the container control
-  global `0x12829424`. `0x11a1b940` (60 call sites) = "find `<switch>` in the command line, take the text
+  `std::string` bookkeeping that write the class pointer `0x128ac3f4` into the global object
+  `0x12829424` (see the singleton bullet; `0x128ac450` was read from the same kind of site and is likewise
+  a `.bss` object, not a file constant). `0x11a1b940` (60 call sites) = "find `<switch>` in the command line, take the text
   after it, store it in an SSO string": two `strstr` calls (`[0x11be1618]`) + `strlen` + assign, with `"`
   (byte `0x22`) quote handling and a space (`0x20`, table at `0x11f31df8`) token split via `0x10003f40`.
   ⇒ `-exec` / `-execline` values are **collected** into the execLines container (`0x12829424`), not executed
@@ -337,6 +338,14 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
   **little-endian** in the image (`0x12829424` → `24 94 82 12`); searching for the reversed byte order
   (or computing blob offsets with VA arithmetic instead of `file offset − section raw pointer`) produces
   false "0 matches" results.
+- **PE layout facts for `FC3_d3d11.dll` 1.06 (ImageBase `0x10000000`, EP RVA `0x700be8` = VA
+  `0x10700be8`):** `.text` `0x10001000`–`0x11be01c1` (raw `0x400`–`0x1bdf600`), `.rdata`
+  `0x11be1000`–`0x120b7347`, `.data` `0x120b8000`–`0x128bc788` with raw size only `0xe7c00`, `.rsrc`
+  `0x128bd000`, `.reloc` `0x12bfa000`. Because virtual size (`0x804788`) is larger than raw size
+  (`0xe7c00`), everything in `.data` from about `0x1219fc00` to `0x128bc788` is **uninitialized (.bss)**:
+  its bytes are absent from the file, so no analysis of a global in that range can be done from the file
+  alone — only from the instructions that reference it. `tools/fc3_addrmap.py:va2off` returns `None` for
+  such addresses, which is the correct behaviour and is what exposed this.
 - Tooling note: `capstone` (5.0.9, installed with `python -m pip install capstone`; the `pip` launcher is
   broken on this machine) plus `tools/fc3_dis.py` (annotated x86 disassembly), `tools/fc3_iat_reverse.py`
   (IAT reverse map), `tools/fc3_strgrep.py` (.rdata string grep) replace Ghidra for read-only work; those

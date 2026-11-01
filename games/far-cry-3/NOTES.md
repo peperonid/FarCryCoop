@@ -183,6 +183,47 @@ listen server with single-player rules, and remote players join. The FC3 plan mi
 
 **Conclusion:** The engine has a complete co-op infrastructure (Storm netcode, session management, LAN discovery, host migration, spawn points). The `-host`/`-client` flags and session type 3 (co-op story) should work. The "not enough players" check at `0x108c4b09` is the main gate to bypass for solo/offline play.
 
+## Startup / command-line behaviour of the Uplay 1.06 build (2026-11-01)
+
+Verified on the owner's machine: `H:/Uplay/Far Cry 3` = Uplay build **1.06**
+(FC3_d3d11.dll 40869416 bytes on disk / 737184512 bytes size, PE compile time 2022-05-04,
+file version 1.06.0.90512, product 1089053420; MD5 FC3_d3d11 `916c6d4b876d8be5f0ad68f50719a838`,
+FC3 `5742de2aaa76935d46947bf89e2e2eb7`, farcry3_d3d11.exe `47d4c992b0e82b7d52cc48e8d1bd9119`).
+No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:/, E:/, H:/).
+
+- **The exe is a DRM stub.** `bin/farcry3_d3d11.exe` (60992 bytes) starts, then re-executes the
+  **canonical install** exe resolved from the registry
+  (`HKLM\SOFTWARE\WOW6432Node\Ubisoft\Far Cry 3`: `InstallDir=H:/Uplay/Far Cry 3`,
+  `ExecutableName=bin/FC3Updater.exe`, SKU=WW, Version=1.05, Language=Russian), passing only
+  `-language=Russian`. Every extra argument is dropped.
+- Consequence for the test copy: launching `H:/FarCryCoop/TestFC3/bin/farcry3_d3d11.exe` with
+  `-host fc3_main -login h1 -coop` starts a child from `H:\Uplay\Far Cry 3\bin` with
+  `-language=Russian` only. The test copy cannot run its own quick-launch.
+- The quick-launch strings ARE present in 1.06 (`FC3.dll` command-line table `0x1fb6f6c`-
+  `0x1fb74f6`): `-host` @0x1fb73cb, `-client` @0x1fb7472, `-login` @0x1fb7370, `-coop` @0x1fb73fc,
+  `-offline` @0x1f36444, `-sessionuid` @0x1fb73e4, `-dedicated` @0x1f0d9dc,
+  "Missing -login or -ip" @0x1fb7458. What is **absent** in 1.06: the 1.05 debug-menu strings
+  "Not enough players", "Local Coop", "Coop Story".
+- Renaming `bin/upc_r1_loader.dll` does not free the stub: the game exits silently ~25 s after
+  launch (no window, no WER event) — the Ubisoft Connect loader is a hard start-up dependency.
+- `HKLM` writes are not available to the current user (not elevated), so the registry cannot be
+  redirected to a private copy. `local/registry-fc3-backup.reg` holds the original values.
+- What 1.06 keeps usable: the single-instance mutex patch (`jnz` at `0x100041bb` / `0x10004092`
+  -> NOPs) lets two copies run side by side; the Uplay party-list crash patch is 1.05-only (the
+  pattern does not occur in 1.06, new UPC API).
+- The 1.06 multiplayer menu is dead: it shows the hard-coded loc id `0x23894` = 145556 =
+  `X360_EU_NETWORK_XLSP_DOWN` dialog (line 152 of the upper-fork notes, see
+  `D:/Projects/Co-op Anything/FarCry3Coop-bantila/NOTES.md`). A quick-launch must therefore
+  bypass the menu, not navigate it.
+- Menu automation note: the menu ignores synthetic `mouse_event` clicks; keyboard scodes sent with
+  `SendInput` (`local/menu.py press down|enter`) do reach the menu.
+- Local-VM caveat: `local/menu.py` and `local/registry-fc3-backup.reg` are artifacts on the owner's
+  machine and are not committed in this repo — recreate them from the registry values above if needed.
+
+**Conclusion:** quick-launch co-op is impossible on this build without either (a) a 1.05 DRM-free
+executable, or (b) a patched stub loader that re-executes our own copy with the quick-launch
+arguments. Both need a decision from the owner.
+
 ## TODO
 
 - [x] Confirm game version and install path with owner (1.06, H:/Uplay/Far Cry 3/)

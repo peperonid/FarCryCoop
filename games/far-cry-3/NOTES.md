@@ -415,9 +415,39 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
 - Local-VM caveat: `local/menu.py` and `local/registry-fc3-backup.reg` are artifacts on the owner's
   machine and are not committed in this repo — recreate them from the registry values above if needed.
 
-**Conclusion:** quick-launch co-op is impossible on this build without either (a) a 1.05 DRM-free
-executable, or (b) a patched stub loader that re-executes our own copy with the quick-launch
-arguments. Both need a decision from the owner.
+## Launch bridge measured (2026-11-02, `tools/fc3_launch_probe.py` + `games/far-cry-3/tools/fc3_upc_probe.py`)
+
+The stub does **not** run the game directly, and it does **not** silently discard the extra arguments — it
+hands them to Ubisoft Connect. Observed process tree from `TestFC3/bin/farcry3_d3d11.exe -language=Russian
+-quickstartup -host fc3_main -login coop1 -coop`:
+
+1. stub pid 25472 exits with code 0 after ~6 s.
+2. new process `C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\upc.exe`, pid 18080, command line with
+   **every argument preserved**: `-upc_uplay_id 46 -language=Russian -quickstartup -host fc3_main -login
+   coop1 -coop -upc_desktop_mode -upc_game_starter`.
+3. upc then starts the **canonical install** stub and drops the quick-launch arguments:
+   `"H:/Uplay/Far Cry 3/bin/farcry3_d3d11.exe" -language=Russian` (pid 31948, ppid 2068).
+
+⇒ the forwarding path is `upc.exe -upc_uplay_id <id> <switches> -upc_desktop_mode -upc_game_starter`; the
+drop happens only in upc's final game start. A trampoline in front of `TestFC3/bin/farcry3_d3d11.exe` that
+calls `upc.exe -upc_uplay_id <id> <args> …` is the candidate for option (b) — it needs the test copy's **own**
+uplay id (id 46 resolves to the store install) and the canonical game must not already be running (pid 31948
+made a later `upc` relaunch exit 0 within 6 s — the `OpenMutexA("FarCry3Instance")` single-instance guard).
+
+Also verified on 1.06: `FC3_d3d11.dll` imports **only `ShellExecuteA`** (`SHELL32.dll`, thunk `0x11be1720`, 2
+call sites `0x10c13882` and `0x10fc2382`, both shaped `6A 01 6A 00 6A 00 68 <url> 68 <verb> 6A 00
+FF 15 20 17 BE 11 C3`; verbs `open`/`reopen`/`read` at `0x11f5f210`), and both URLs are marketing links —
+`http://shop.ubi.com/store/ubiemea/html/pbPage.generic-Far-Cry-3-303-other…` at `0x1209f220`,
+`http://store.steampowered.com/app/220240` at `0x1202fcec`. `FC3_d3d11.dll` imports **no `ShellExecuteEx`
+and no `CreateProcess`**, so the earlier working note claiming "ShellExecuteEx at `0x11a4b404`" was a mis-read
+of a direct call inside a 1181-byte function (`0x11a4b…`..`0x11a4b4c5`, 30 direct calls, 0 indirect calls).
+The re-exec is performed by the launcher/UI layer through Ubisoft Connect, not by a `CreateProcess` in the
+game DLL.
+
+**Conclusion:** quick-launch co-op is impossible on this build without either (a) a 1.05 DRM-free executable,
+or (b) a launcher bridge — a stub/UPC trampoline that makes Ubisoft Connect start **our own** copy with the
+quick-launch arguments (the argument forwarding itself is now measured, above). Both need a decision from the
+owner.
 
 ## TODO
 
@@ -436,6 +466,10 @@ arguments. Both need a decision from the owner.
   — progress: `execLines` is now known to be a **session-operation parameter** registered at
   `FC3.dll 0x113429ca` next to `map`/`mapId*`/`bfname`, and the `-exec` values land in the global
   container `0x12829424`; still unproven: which call consumes that container at session start.
+- [ ] Launch-bridge re-test with the **test copy's own uplay id**: `python -I games/far-cry-3/tools
+  /fc3_upc_probe.py --uplay-id <id> --wait 60`, run only after the canonical game process is closed
+  (`H:/Uplay/Far Cry 3/bin/farcry3_d3d11.exe` pid 31948 was still running on 2026-11-02, which made upc exit
+  0 immediately — the `OpenMutexA("FarCry3Instance")` single-instance guard).
 - [ ] Fix `tools/fc3_reloc_xref.py`: its premise (disp32 global accesses need reloc walking) is wrong —
   disp32 fields in `.text` are not relocation entries, so reloc lookups return 0. Replace the reloc-table
   walk with a byte scan for the little-endian VA plus the ModRM forms (`8b/89/8d/83/81 + [05 0d 15 …]`,

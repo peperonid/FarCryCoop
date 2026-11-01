@@ -53,3 +53,22 @@ locally on the owner's PC: see [docs/tools/rea.md](docs/tools/rea.md).
 **EN:** Chat with the owner in Russian.
 
 **RU:** С владельцем общаться по-русски.
+
+## Session rules / Правила сессии
+
+**EN:** Tool calls: one tool block per turn, one tool name per block, arguments under ~4 KB. Long probe
+scripts are written to a file and run with a short command (`python -I tools/<script>.py`), never pasted
+as tool input; read files with line ranges, not whole. This rule exists because two turns this session
+printed half-mangled tool markup as plain text and stopped.
+Working paths: the live workspace is the folder named in `docs/LOCAL.md` (`local/` is git-ignored and
+owner-specific); the game install is never modified. `E:\FarCryCoop` in rule 2 above, and the same path
+in [docs/workspace.md](docs/workspace.md), is the original 2024 workspace and is no longer present on
+this PC.
+
+**RU:** Вызовы инструментов: один блок на ход, один инструмент в блоке, аргументы не больше ~4 КБ.
+Длинные probe-скрипты писать в файл и запускать короткой командой (`python -I tools/<script>.py`),
+не вставлять код в вызов; читать файлы частями (строки по номерам), не целиком. Правило появилось
+из-за двух ходов, где разметка вызовов выводилась как обычный текст и работа останавливалась.
+Рабочие пути: рабочая папка указана в `docs/LOCAL.md` (`local/` в git не попадает и принадлежит
+владельцу); установку игры не изменять. `E:\FarCryCoop` из правила 2 выше — рабочий каталог 2024 года,
+на этом ПК его нет.

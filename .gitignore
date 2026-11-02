@@ -9,3 +9,10 @@ games/far-cry/crygame/
 # Analysis scripts (capstone disassembler, IAT maps) stay local / Скрипты анализа остаются локально
 tools/
 tools/fc3_dis_cache.json
+
+# Scratch/one-off artifacts (live under local/scratch/ instead)
+# Черновики: папка local/scratch/
+*.scratch*
+.scratch*
+scratch_*
+local/scratch/

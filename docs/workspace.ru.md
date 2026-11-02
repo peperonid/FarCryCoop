@@ -2,6 +2,9 @@
 
 English version: [workspace.md](workspace.md)
 
+Примечание: на этом ПК папки `E:\FarCryCoop` не было; фактическая структура описана
+в [LOCAL.ru.md](LOCAL.ru.md) (+ [LOCAL.md](LOCAL.md)).
+
 Вся работа идёт в `E:\FarCryCoop` (см. золотое правило 2 в [CLAUDE.md](../CLAUDE.md)).
 Сначала загрузить окружение: `. E:\FarCryCoop\env.ps1`.
 

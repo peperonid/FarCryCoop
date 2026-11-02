@@ -15,21 +15,21 @@ for short texts. When one language version changes, update the other in the same
 
 ## Golden rule 2: workspace / Золотое правило 2: рабочая папка
 
-**EN:** Work ONLY inside `E:\FarCryCoop`. NEVER read, write or download anything on drive C: —
-no exceptions. NEVER download into `%TEMP%`. Before running any tool, load `. E:\FarCryCoop\env.ps1`
-(it points TEMP/TMP, npm cache, JAVA_HOME, Ghidra to `E:\FarCryCoop`). Layout:
+**EN:** Work ONLY inside `D:\Projects\Co-op Anything\FarCryCoop`. NEVER read, write or download anything on drive C: —
+no exceptions. NEVER download into `%TEMP%`. Before running any tool, load `. D:\Projects\Co-op Anything\FarCryCoop\env.ps1`
+(it points TEMP/TMP, npm cache, JAVA_HOME, Ghidra to `D:\Projects\Co-op Anything\FarCryCoop`). Layout:
 `Downloads\<name>\` — verified archives (one folder each); `Tools\` — unpacked tools;
 `Data\` — tool settings and caches; `Temp\` — temporary files. The game at
 `D:\SteamLibrary\steamapps\common\FarCry` is read-only (AGENTS.md rule 2); work on copies in
-`E:\FarCryCoop`. If a step would need drive C:, stop and ask the owner.
+`D:\Projects\Co-op Anything\FarCryCoop`. If a step would need drive C:, stop and ask the owner.
 
-**RU:** Работать ТОЛЬКО внутри `E:\FarCryCoop`. НИКОГДА ничего не читать, не писать и не скачивать
+**RU:** Работать ТОЛЬКО внутри `D:\Projects\Co-op Anything\FarCryCoop`. НИКОГДА ничего не читать, не писать и не скачивать
 на диск C: — без исключений. НИКОГДА не качать в `%TEMP%`. Перед запуском любых инструментов
-загружать `. E:\FarCryCoop\env.ps1` (он направляет TEMP/TMP, кэш npm, JAVA_HOME, Ghidra в
-`E:\FarCryCoop`). Структура: `Downloads\<имя>\` — проверенные архивы (у каждого своя папка);
+загружать `. D:\Projects\Co-op Anything\FarCryCoop\env.ps1` (он направляет TEMP/TMP, кэш npm, JAVA_HOME, Ghidra в
+`D:\Projects\Co-op Anything\FarCryCoop`). Структура: `Downloads\<имя>\` — проверенные архивы (у каждого своя папка);
 `Tools\` — распакованные инструменты; `Data\` — настройки и кэши инструментов; `Temp\` — временные
 файлы. Игра в `D:\SteamLibrary\steamapps\common\FarCry` — только чтение (правило 2 AGENTS.md);
-работать с копиями в `E:\FarCryCoop`. Если шаг требует диска C:, остановиться и спросить владельца.
+работать с копиями в `D:\Projects\Co-op Anything\FarCryCoop`. Если шаг требует диска C:, остановиться и спросить владельца.
 
 ## Commits / Коммиты
 
@@ -61,7 +61,7 @@ scripts are written to a file and run with a short command (`python -I tools/<sc
 as tool input; read files with line ranges, not whole. This rule exists because two turns this session
 printed half-mangled tool markup as plain text and stopped.
 Working paths: the live workspace is the folder named in `docs/LOCAL.md` (`local/` is git-ignored and
-owner-specific); the game install is never modified. `E:\FarCryCoop` in rule 2 above, and the same path
+owner-specific); the game install is never modified. `D:\Projects\Co-op Anything\FarCryCoop` in rule 2 above, and the same path
 in [docs/workspace.md](docs/workspace.md), is the original 2024 workspace and is no longer present on
 this PC.
 
@@ -70,5 +70,5 @@ this PC.
 не вставлять код в вызов; читать файлы частями (строки по номерам), не целиком. Правило появилось
 из-за двух ходов, где разметка вызовов выводилась как обычный текст и работа останавливалась.
 Рабочие пути: рабочая папка указана в `docs/LOCAL.md` (`local/` в git не попадает и принадлежит
-владельцу); установку игры не изменять. `E:\FarCryCoop` из правила 2 выше — рабочий каталог 2024 года,
+владельцу); установку игры не изменять. `D:\Projects\Co-op Anything\FarCryCoop` из правила 2 выше — рабочий каталог 2024 года,
 на этом ПК его нет.

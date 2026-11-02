@@ -149,6 +149,39 @@ listen server with single-player rules, and remote players join. The FC3 plan mi
 - **FCBConverter** (Jakub Marecek): converts `.fcb` to XML and back. Ships 4.1M file names + 483K strings for naming hashes. Needs .NET 7+; runs on portable .NET 8.
 - **REA** (Ghidra 12.1.4 MCP server): `FC3.dll` 40 MB, first analysis ~10 min. `REA_GHIDRA_STARTUP_TIMEOUT_MS=3600000`.
 
+### Ghidra-derived 1.05 `FC3.dll` addresses (from Bantila's Phase 1 notes; NOT re-checked against 1.06)
+
+These are the names Ghidra assigned to the 1.05 executable's functions. They are the only place
+where the launcher handlers and the player-service entry points are written down, so they are kept
+here even though no 1.05 file is currently open on this machine. All are in `FC3.dll` (1.05).
+
+| Item | 1.05 address | Role |
+| --- | --- | --- |
+| `-host` handler | `FUN_106518ba` | starts a host session from the command line |
+| `-client` handler | `FUN_10651d10` | starts a client session from the command line |
+| `-offline` handler | `FUN_10680f27` | enables the debug menu (COOP Story entry) |
+| `GetLocalPlayerId` string | `0x11fbdcc4` (xref `0x111ce912`) | net-registered player-service field name |
+| `GetNumberOfPlayers` | `FUN_10681070` | player count |
+| `GetPlayerInSlot` | `FUN_10680ef0` | slot → player id |
+| `CoopGetCharacterName` | `FUN_10680f90` | player name |
+| `CoopTeleportPlayer` xref | `0x11b1d252` | teleport call site |
+| Component lookup | `FUN_1039e1f0` (type from `FUN_1039e0d0`) | get a net component by type |
+| Slot-0 fallback | `FUN_11305eb0` (provider `DAT_1280437c`) | single-player fallback path |
+| Session object create | `FUN_10260770` | not yet decompiled; 1.06 equivalent still open |
+| `SpawnCoopAI` / `OnSpawnPlayer_%u` | string `0x11fc1c64` (1.06 pair: `0x11fbda7c` push `0x111cdf76`, `0x1206ad0c` push `0x11b1da06`) | co-op spawn request |
+| Net registration | `FUN_11839b60` / `FUN_10468480` | register the component / field |
+| "Not enough players" | call site `0x108c4b09`, in functions `0x108c4c6b` and `0x108c5c36` | the 5-NOP patch target of mod 262 |
+| Central game object | `DAT_12804acc` (4,529 references, `+0x68` component container) | the object every component lookup goes through |
+
+1.06 counterparts measured locally (see the command-line section below): launcher function
+`0x11aa2fe0`, value extractor `0x11a1b940` (call sites `-host` `0x11aa12a6`, `-client` `0x11aa1362`,
+`-load` `0x11aa2b31`, `-wait` `0x11aa2680`), command-line rewriting routine
+`0x11aa39d0`..`0x11aa3b60` with append helper `0x100041b0` and the hard-coded fragments
+`' -world=fc3_main'` `0x11fdbdb1`, `' -spawnpos=333.63,964.5,124.465'` `0x11fdbdc4`,
+`' -spawnangle=0.0,0.0,0.0'` `0x11fdbde4`, `' -spawnpos=-857.626,2317.1,119.752'` `0x11fdbe0c`,
+`' -spawnangle=0.0,0.0,-20.0'` `0x11fdbe30`; switch blocks `FC3_d3d11.dll` `0x11fdbc*` and
+`FC3.dll` `0x11fb7*` (`0x11fb7d90`..`0x11fb7e27` for the cheat/graphics set).
+
 ## Phase 2 findings (2026-11-01, FC3.dll binary analysis)
 
 **Network stack: Storm (Ubisoft)** — confirmed in FC3.dll strings:
@@ -448,6 +481,31 @@ game DLL.
 or (b) a launcher bridge — a stub/UPC trampoline that makes Ubisoft Connect start **our own** copy with the
 quick-launch arguments (the argument forwarding itself is now measured, above). Both need a decision from the
 owner.
+
+### Script and artifact locations / Размещение скриптов и артефактов
+
+Analysis scripts in this fork stay out of git by the owner's ignore rules
+(`.gitignore:5 games/*/tools/`, `.gitignore:10 tools/`): `tools/` (capstone disassembly, switch-table scans)
+and `games/far-cry-3/tools/` (`fc3_addrmap.py`, `fc3_switchtable.py`, `fc3_quicklaunch_map.py`, `fc3_dataslot.py`,
+`fc3_trampoline.py`, `fc3_upc_probe.py`). Private state and one-off scratch live in `local/` (gitignored per hub
+AGENTS.md): `local/registry-fc3-backup.reg`, `local/menu.py`, `local/fc3-redirect-test.reg`, and drafts under
+`local/scratch/` (`local/scratch/ru-105-address-block.md`, `local/scratch/fc3_ru_splice.py`). Do not put drafts in
+`games/<slug>/`. Scratch patterns now in `.gitignore`: `*.scratch*`, `.scratch*`, `scratch_*`, `local/scratch/`.
+
+Bantila's precedent (`FarCry3Coop-bantila/.gitignore` ignores `local/`, `/tools/`, `.playwright-mcp/` while `scripts/`
+is tracked — 24 scripts including `fc3_addrmap.py`, `find.py`, `patch_dll.py`, `build_testgame.ps1`): small analysis
+tools are committed there. Whether this fork should track `tools/` is an open owner decision (hub PR).
+
+Canonical layout, the owner's other scheme (`docs/workspace.md`, CLAUDE.md golden rule 2): everything under
+`E:\FarCryCoop` (`Downloads\<name>\`, `Tools\`, `Data\`, `Temp\`), C:\ untouched. `E:\FarCryCoop` does not exist on
+this machine — repos are at `D:\Projects\Co-op Anything\`, the test copy at `H:\FarCryCoop\TestFC3`, so the E:\ scheme
+still needs reconciliation with the owner. Carried-over bantila scripts hardcode stale paths
+`DLL_106 = E:\SteamLibrary\steamapps\common\Far Cry 3\bin\FC3.dll`, `DLL_105 = E:\FarCryCoop\Downloads\fc3-1.05\bin\FC3.dll`.
+The agent harness itself writes temp work to `C:\Users\<user>\AppData\Roaming\pi-desktop\tmp` (delegate outputs,
+sandbox scripts), which contradicts golden rule 2 — flagged, not fixed (owner decision).
+
+An undeletable stray file named `nul` sits at the workspace root and makes `git add -A` fail
+(`error: invalid path 'NUL'`); commit with explicit paths only.
 
 ## TODO
 

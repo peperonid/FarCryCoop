@@ -2,6 +2,9 @@
 
 Russian version: [workspace.ru.md](workspace.ru.md)
 
+Note: on this PC the canonical `E:\FarCryCoop` workspace does not exist; the live layout is
+documented in [LOCAL.md](LOCAL.md) (+ [LOCAL.ru.md](LOCAL.ru.md)).
+
 All work happens in `E:\FarCryCoop` (see the golden rule 2 in [CLAUDE.md](../CLAUDE.md)).
 Load the environment first: `. E:\FarCryCoop\env.ps1`.
 

@@ -422,6 +422,36 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
   `execLines` being a session-operation field, registered immediately before `map`/`mapId*`/`bfname`, is
   the strongest link between the command line and a co-op session request: those are exactly the
   parameters a session-creation call needs.
+- **`exec` / `runbatch` registration and the batch-file operation class (VERIFIED 2026-11-02, 1.06).**
+  `FC3_d3d11.dll` registers console command `exec` `0x11fdd478` with signature `Game:Exec(%%)` `0x11fdd468`
+  (help `Runs a console command "batchfile". Usage: "exec <batchfile>"` `0x11fdd428`, refs `0x111f5c0a` /
+  `0x111f5c1a`) inside a registration block `0x111f5b80`..`0x111f5cbc` whose enclosing function starts at
+  `0x111f4eab`. Registration call at `0x111f5c7b`: `push ebx; push 1; push edx; push <sig>; push eax;`
+  `push ecx; call 0x1163d910` — the handler pointer is carried in `ebx` (a stack value), so
+  `PE.code_refs()` cannot locate it (it only sees `push imm32` / `mov r32, imm32`). `FC3.dll` twins: help
+  `0x11fb9558`, `Usage: runbatch <batchfile>` `0x11fba5bd` (`FC3_d3d11` twin `0x11fde48d`), refs
+  `0x111f032a` / `0x111f033a`. The engine batch-file operation class name `CFCXRunBatchFileOperation`
+  (`FC3_d3d11.dll` `0x12032844`, ref `0x104e5fe9`; `FC3.dll` `0x1200e72c`, ref `0x104df159`) is registered
+  from global-init function `0x104e5f42`, which guards on `cmp byte ptr [0x1288b074], 0` and registers its
+  siblings the same way (`CFCXClearMessageBoxManager` `0x12032808`, `CFCXPrepareUnloadWorldOperation`
+  `0x12032824`; idiom `call 0x103a9180` → `push <name>` → `call 0x10038870`). Both `0x104e5f42` and
+  `0x111f5a00` report **0 E8 callers**: these registration blocks are global-initialization functions run by
+  the CRT initializer (`.initterm`), so `fc3_callers.py` finds nothing — do not treat "0 callers" as "dead
+  code".
+- **Session-creation call layout in the `-quickmatch`/`-host` branch (`FC3.dll`).** `0x11a8d0c5`..`0x11a8d0e2`:
+  `lea edx,[ebp+8]; push edx; lea edi,[ebp-0xb4]; call 0x11341dc0` → `mov ecx,[eax]` (vftable) →
+  `mov eax,[ecx]` → `mov eax,[eax+0x74]` → `lea edx,[ebp+0x10]; push edx; lea esi,[ebx+0x18]; call eax` →
+  `mov edi,eax; call 0x10005570` (release) → `jmp 0x11a8cf90`; failure path destructor
+  `lea ecx,[ebp-0xb4]; call 0x11343640` at `0x11a8d0f6` frees fields at `[obj+0x98]` / `[obj+0x9c]`.
+  ⇒ **vftable slot `0x74` takes exactly one argument: a 0xB4 (180-byte) session-parameter struct at
+  `[ebp+0x10]`**, and the interface handle is tracked in a `[ebp-0xb4]` object. Session-interface getter
+  `0x11341dc0` has **31 E8 callers** in `FC3.dll` (`0x10ce93c9`, `0x10edd676`, `0x10edd6e9`, `0x10edd71a`,
+  `0x11163252`, `0x11163b6f`, `0x111fa8de`, …) ⇒ it is a generic accessor, so the co-op route has to be
+  identified by the 180-byte struct layout, not by caller uniqueness.
+- **Lesson (2026-11-02):** registration routines reached only through the CRT initializer are invisible to a
+  caller scan, and handler/callback pointers passed in registers are invisible to `code_refs()`. The
+  remaining handle on the `-exec` consumer is the 180-byte session-parameter struct at
+  `FC3.dll 0x11a8d0db` plus the session object's `+0x98` field — probe those layouts next.
 - **ExecLines container is a global singleton (`FC3_d3d11.dll`).** A raw byte scan of `.text` for the
   disp32 `24 94 82 12` (0x12829424 in little-endian) gives **17 502 access sites**, overwhelmingly
   `8b 0d` (`mov r32,[g]`) pairs ~12 bytes apart — the `mov ecx,[g]` / `call fn` idiom — i.e. this global
@@ -523,7 +553,11 @@ An undeletable stray file named `nul` sits at the workspace root and makes `git 
   (needs: which consumer executes the extracted string, and whether `Exec` `0x11fbda40` is reachable at launch)
   — progress: `execLines` is now known to be a **session-operation parameter** registered at
   `FC3.dll 0x113429ca` next to `map`/`mapId*`/`bfname`, and the `-exec` values land in the global
-  container `0x12829424`; still unproven: which call consumes that container at session start.
+  container `0x12829424`; the consumer is still unproven, and two new dead ends are recorded:
+  registration blocks `0x111f4eab` (fc3_d3d11, `exec`/`Game:Exec(%%)`) and `0x104e5f42`
+  (`CFCXRunBatchFileOperation`) have 0 E8 callers (CRT init), and the handler pointer at
+  `0x111f5c71` is passed in a register. Next probe: the 180-byte session-parameter struct at
+  `FC3.dll 0x11a8d0db` (`lea edx,[ebp+0x10]`) and the session object field `[obj+0x98]`.
 - [ ] Launch-bridge re-test with the **test copy's own uplay id**: `python -I games/far-cry-3/tools
   /fc3_upc_probe.py --uplay-id <id> --wait 60`, run only after the canonical game process is closed
   (`H:/Uplay/Far Cry 3/bin/farcry3_d3d11.exe` pid 31948 was still running on 2026-11-02, which made upc exit

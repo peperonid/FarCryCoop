@@ -16,3 +16,6 @@ tools/fc3_dis_cache.json
 .scratch*
 scratch_*
 local/scratch/
+
+# Harness scratch (agent temp dumps, delegate output, probe scripts) / черновики агентской сессии
+Temp/

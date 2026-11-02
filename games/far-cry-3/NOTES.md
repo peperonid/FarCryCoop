@@ -460,6 +460,19 @@ No 1.05 build exists anywhere on the disks (C:/Users/USER/Downloads, Desktop, D:
   **little-endian** in the image (`0x12829424` → `24 94 82 12`); searching for the reversed byte order
   (or computing blob offsets with VA arithmetic instead of `file offset − section raw pointer`) produces
   false "0 matches" results.
+- **Static dead end for the `execLines` consumer (2026-11-02, `FC3_d3d11.dll` 1.06):** the lazy-init
+  thunk at function `0x118e82d0` is the container's Meyers-singleter accessor — `test byte ptr
+  [0x128ac410], 1` / `or dword ptr [0x128ac410], 1` / `push 0; mov ecx, 0x128ac3f4; call 0x106c4b40` /
+  `push 0x11bb98c0; call 0x1070085d` / `mov al, 1; mov dword ptr [0x12829424], 0x128ac3f4; ret` — and
+  `0x11bb98c0` is an atexit-registered destructor thunk (`mov ecx, 0x128ac3f4; jmp 0x106c4b70`), sibling
+  `0x11bb98d0` for the next global. Session-op field names are registered on first use by lazy thunks
+  (`0x11348230` guard `[0x1282a60c]` → `call 0x11347c60` guard `[0x1282a607]` → `push <name>; push <size>`
+  → `call 0x103173f0`, then `[0x12852d54]`/`[0x12852d58]` and `[0x12852dcc]`/`[0x12852dd0]` pairs,
+  `sar ecx, 2` = element count), and the registry is only ever touched by 10-byte accessor thunks at
+  `0x11bc8a80`..`0x11bc8ad0` shaped `b8 <slot> ; e9 <jmp 0x10004d70>`. Conclusion: a static scan will not
+  isolate the consumer — `mov ecx,[0x12829424]; call 0x106c99b0; mov eax,<str>; call 0x11788480` occurs
+  8 311 times in the binary, i.e. the generic container idiom. Next handle is dynamic: a `-exec`/`-execline`
+  run against the test copy, or Ghidra decompilation of the thunks (`scripts/fc3_ghidra_dis.py`).
 - **PE layout facts for `FC3_d3d11.dll` 1.06 (ImageBase `0x10000000`, EP RVA `0x700be8` = VA
   `0x10700be8`):** `.text` `0x10001000`–`0x11be01c1` (raw `0x400`–`0x1bdf600`), `.rdata`
   `0x11be1000`–`0x120b7347`, `.data` `0x120b8000`–`0x128bc788` with raw size only `0xe7c00`, `.rsrc`

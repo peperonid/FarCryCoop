@@ -17,7 +17,8 @@ for short texts. When one language version changes, update the other in the same
 
 **EN:** Work ONLY inside `D:\Projects\Co-op Anything\FarCryCoop`. NEVER read, write or download anything on drive C: —
 no exceptions. NEVER download into `%TEMP%`. Before running any tool, load `. D:\Projects\Co-op Anything\FarCryCoop\env.ps1`
-(it points TEMP/TMP, npm cache, JAVA_HOME, Ghidra to `D:\Projects\Co-op Anything\FarCryCoop`). Layout:
+(this `env.ps1` is not present in this repo on this PC; there it redirected TEMP/TMP, the npm cache,
+JAVA_HOME and Ghidra into that folder — see the deviation note in [docs/LOCAL.md](docs/LOCAL.md)). Layout:
 `Downloads\<name>\` — verified archives (one folder each); `Tools\` — unpacked tools;
 `Data\` — tool settings and caches; `Temp\` — temporary files. The game at
 `D:\SteamLibrary\steamapps\common\FarCry` is read-only (AGENTS.md rule 2); work on copies in
@@ -25,8 +26,9 @@ no exceptions. NEVER download into `%TEMP%`. Before running any tool, load `. D:
 
 **RU:** Работать ТОЛЬКО внутри `D:\Projects\Co-op Anything\FarCryCoop`. НИКОГДА ничего не читать, не писать и не скачивать
 на диск C: — без исключений. НИКОГДА не качать в `%TEMP%`. Перед запуском любых инструментов
-загружать `. D:\Projects\Co-op Anything\FarCryCoop\env.ps1` (он направляет TEMP/TMP, кэш npm, JAVA_HOME, Ghidra в
-`D:\Projects\Co-op Anything\FarCryCoop`). Структура: `Downloads\<имя>\` — проверенные архивы (у каждого своя папка);
+загружать `. D:\Projects\Co-op Anything\FarCryCoop\env.ps1` (этого `env.ps1` нет в этом репозитории на
+этом ПК; там он направлял TEMP/TMP, кэш npm, JAVA_HOME и Ghidra в эту папку — см. отклонение в
+[docs/LOCAL.md](docs/LOCAL.md)). Структура: `Downloads\<имя>\` — проверенные архивы (у каждого своя папка);
 `Tools\` — распакованные инструменты; `Data\` — настройки и кэши инструментов; `Temp\` — временные
 файлы. Игра в `D:\SteamLibrary\steamapps\common\FarCry` — только чтение (правило 2 AGENTS.md);
 работать с копиями в `D:\Projects\Co-op Anything\FarCryCoop`. Если шаг требует диска C:, остановиться и спросить владельца.
@@ -42,11 +44,17 @@ and are written in English only: `<type>(<optional scope>): <description>`, e.g.
 
 ## Tools / Инструменты
 
-**EN:** Reverse engineering uses REA (https://github.com/morluto/rea) as an MCP server, registered
-locally on the owner's PC: see [docs/tools/rea.md](docs/tools/rea.md).
+**EN:** Reverse engineering uses REA (https://github.com/morluto/rea) as an MCP server. It is not
+registered through this repository's `.mcp.json`; REA writes its own entry into the agent's own
+configuration. On this PC (2026-11-03) it is `rea-agents` 6.8.0, registered for the **pi** agent in
+`C:\Users\<user>\.pi\agent\mcp.json`, with Ghidra 12.1.4 and Temurin JDK 21.0.13+9 under `C:\tools`.
+See [docs/tools/rea.md](docs/tools/rea.md).
 
-**RU:** Для реверс-инжиниринга используется REA (https://github.com/morluto/rea) как MCP-сервер,
-подключённый локально на ПК владельца: см. [docs/tools/rea.ru.md](docs/tools/rea.ru.md).
+**RU:** Для реверс-инжиниринга используется REA (https://github.com/morluto/rea) как MCP-сервер. Он не
+регистрируется через `.mcp.json` этого репозитория: REA сам записывает свою запись в конфигурацию
+агента. На этом ПК (2026-11-03) это `rea-agents` 6.8.0, прописанный для агента **pi** в
+`C:\Users\<user>\.pi\agent\mcp.json`, с Ghidra 12.1.4 и Temurin JDK 21.0.13+9 в `C:\tools`.
+См. [docs/tools/rea.ru.md](docs/tools/rea.ru.md).
 
 ## Communication / Общение
 
@@ -61,14 +69,15 @@ scripts are written to a file and run with a short command (`python -I tools/<sc
 as tool input; read files with line ranges, not whole. This rule exists because two turns this session
 printed half-mangled tool markup as plain text and stopped.
 Working paths: the live workspace is the folder named in `docs/LOCAL.md` (`local/` is git-ignored and
-owner-specific); the game install is never modified. `D:\Projects\Co-op Anything\FarCryCoop` in rule 2 above, and the same path
-in [docs/workspace.md](docs/workspace.md), is the original 2024 workspace and is no longer present on
-this PC.
+owner-specific); the game install is never modified. `D:\Projects\Co-op Anything\FarCryCoop` in rule 2 above
+is the live workspace on this PC (the repo root); the original 2024 workspace was `E:\FarCryCoop` and is not
+present here. The 2024 layout is described in [docs/workspace.md](docs/workspace.md).
 
 **RU:** Вызовы инструментов: один блок на ход, один инструмент в блоке, аргументы не больше ~4 КБ.
 Длинные probe-скрипты писать в файл и запускать короткой командой (`python -I tools/<script>.py`),
 не вставлять код в вызов; читать файлы частями (строки по номерам), не целиком. Правило появилось
 из-за двух ходов, где разметка вызовов выводилась как обычный текст и работа останавливалась.
 Рабочие пути: рабочая папка указана в `docs/LOCAL.md` (`local/` в git не попадает и принадлежит
-владельцу); установку игры не изменять. `D:\Projects\Co-op Anything\FarCryCoop` из правила 2 выше — рабочий каталог 2024 года,
-на этом ПК его нет.
+владельцу); каталог игры не изменять. `D:\Projects\Co-op Anything\FarCryCoop` из правила 2 выше — это
+живая рабочая папка на этом ПК (корень репозитория); рабочий каталог 2024 года — `E:\FarCryCoop`, на этом
+ПК его нет. Раскладка 2024 года описана в [docs/workspace.md](docs/workspace.md).

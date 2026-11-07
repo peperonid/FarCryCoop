@@ -135,7 +135,10 @@ Confirmed facts (1.06, `H:\FarCryCoop\TestFC3in\FC3.dll`, image base `0x1000000
   `0x11279910` (stores at `0x1127995f` and `0x11279adf`).
 - `0x11279910` has no direct trigger: it is reached by a virtual dispatch — vmethod `0x11a58700`
   (a slot in the dispatch table at `.rdata 0x1200ad00`) → caller `0x1127a0f0`/`0x11279fc0` → `0x11279910`.
-- The mode-id globals are reset to `-1` by vmethod `0x11b2a610` (a slot of vtable `0x11bd2b04`).
+- The ten globals `[0x12807738..0x1280775c]` are primed to `-1` at module init by `0x11b2a610` (an
+  entry of the init table at `.rdata 0x11bd2b04` — NOT a vtable; see NOTES 2026-11-07). The only
+  runtime writer of those globals is `0x117884f0`, which derives them from the packed field
+  `[0x1217c688]`.
 
 Candidate hooks to evaluate in Phase 2 (transport A: force a local co-op session and see if the
 island loads with story content):
@@ -144,9 +147,12 @@ island loads with story content):
   into `[0x12891ca0]`/`[0x12891ca8]` from the ASI after the engine is up, or (b) hook the install
   vmethod chain (`0x1200ad00` dispatch → `0x11279910`) and force the id. Chosen over reverse-driving
   the whole dispatch: writing the two globals is the smallest observable change.
-- **H2 — stop the mode-id reset.** If the co-op id is cleared by `0x11b2a610` when a session tears
-  down, hook that vmethod (or NOP its stores of `-1`) so a forced id survives a reload.
+- **H2 — (doubtful, likely drop).** `0x11b2a610` is a one-shot module-init stub (not a per-session
+  method), so it does not run on session teardown — a reload re-priming `[0x12807738..0x1280775c]`
+  is not the threat assumed when this hook was drafted. The co-op id globals `[0x12891ca0]/[0x12891ca8]`
+  are a different set. Re-check only if a runtime trace shows `[0x12891ca0]` actually being cleared.
 
-Open before either hook is real (tracked in NOTES): the owner of the `.rdata 0x1200ad00` dispatch
-table, the caller of vmethod `0x11a58700`, and the live object that carries vtable `0x11bd2b04`.
-Until those are known the hooks are write-after-init experiments, not stable detours.
+Open before either hook is real (tracked in NOTES): the caller of vmethod `0x11a58700` (owner of the
+`.rdata 0x1200ad00` table is resolved — `CFCXPlaylistService`; `0x11bd2b04` is resolved — an init
+table, not a vtable). Until the `0x11a58700` caller is known, the hooks are write-after-init
+experiments, not stable detours.

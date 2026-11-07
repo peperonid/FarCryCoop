@@ -117,3 +117,36 @@ Parts in both cases:
   the FC3 island. ~2 GB download suggests a repacked world archive.
 - **Nexus mod 262 "Solo Offline Coop"** — NOPs the "not enough players" check, changes playlist
   `minPlayersInRound` to 1. Reference for offline session startup.
+
+
+## Candidate hook points for the ASI (added 2026-11-07, agent; 1.06 addresses — map to 1.05 before use)
+
+From the read-only RE in `NOTES.md` (sections "Co-op-id install path, verified from raw bytes" and
+"Store-writer attribution"). These are **candidates for the Phase 2 spike, not decisions**; 1.05 is
+the primary target, so every address below is a 1.06 build address that must be re-located in 1.05
+with `scriptsc3_addrmap.py` before any patch. The owner approves the actual hook before it is written.
+
+Confirmed facts (1.06, `H:\FarCryCoop\TestFC3in\FC3.dll`, image base `0x10000000`):
+
+- The co-op game/mode id is the hash `0x43521e6f`. It is also a literal in the mode-id table at
+  `.data 0x1216a00c`, `0x1216aa40`, `0x1216aee4`, `0x12173ff4`.
+- Two runtime globals hold the installed co-op id: `[0x12891ca0]` and `[0x12891ca8]` (both BSS, zero
+  at load; `[0x12891ca4]`/`[0x12891cac]` are init stamps). They are written by the install routine
+  `0x11279910` (stores at `0x1127995f` and `0x11279adf`).
+- `0x11279910` has no direct trigger: it is reached by a virtual dispatch — vmethod `0x11a58700`
+  (a slot in the dispatch table at `.rdata 0x1200ad00`) → caller `0x1127a0f0`/`0x11279fc0` → `0x11279910`.
+- The mode-id globals are reset to `-1` by vmethod `0x11b2a610` (a slot of vtable `0x11bd2b04`).
+
+Candidate hooks to evaluate in Phase 2 (transport A: force a local co-op session and see if the
+island loads with story content):
+
+- **H1 — force the co-op id at startup.** Either (a) NOP the install guard and write `0x43521e6f`
+  into `[0x12891ca0]`/`[0x12891ca8]` from the ASI after the engine is up, or (b) hook the install
+  vmethod chain (`0x1200ad00` dispatch → `0x11279910`) and force the id. Chosen over reverse-driving
+  the whole dispatch: writing the two globals is the smallest observable change.
+- **H2 — stop the mode-id reset.** If the co-op id is cleared by `0x11b2a610` when a session tears
+  down, hook that vmethod (or NOP its stores of `-1`) so a forced id survives a reload.
+
+Open before either hook is real (tracked in NOTES): the owner of the `.rdata 0x1200ad00` dispatch
+table, the caller of vmethod `0x11a58700`, and the live object that carries vtable `0x11bd2b04`.
+Until those are known the hooks are write-after-init experiments, not stable detours.

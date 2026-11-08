@@ -220,3 +220,33 @@ Revised Phase-2 levers (both now static):
 - **H3b - populate session:** call `FUN_1127a0f0` (or the finer `FUN_113224e0`(0x43521e6f) then
   `container->vtable[+0x5c]`) on the playlist service to inject the co-op entry.
 - Still blocked: naming the five sibling mode-hash ids (custom hash not recovered).
+
+## Hook status after session 8 (added 2026-11-08, agent; OVERRIDES H3a above)
+
+Sessions 8/8b/8c captured the live mode-manager (Frida on the DX9 `farcry3.exe`, working copy only) and
+decompiled the switch virtual. Two hard results change H3a:
+
+- **The live mode-manager primary vtable is `0x1200e5f8`; the dispatcher `FUN_11340560` is its `+0x60` slot,
+  and `vtable[+0x5c]` is `FUN_1030f8a0`.** `FUN_1030f8a0` decompiles to a two-line id-swizzle:
+  `[this+0x4c]=[this+0x48]; [this+0x48]=*param_2`. It loads no world and builds no session.
+  **H3a (poke `[this+0x4c]` + call `vtable[+0x5c]`) is therefore a no-op for entering co-op** - harmless
+  (no crash risk, so the live `switch go` test is unnecessary) but it cannot start a co-op session.
+  The "switch" only records a target id into `[this+0x48]`; the real transition lives in the consumers of
+  `[this+0x48]` and in whoever invokes the dispatcher-virtual `vtable[+0x60]` with `(param_2=&destId, ...)`.
+- **The live manager is only reliably found via the dispatch hook** (`--watch` during a transition):
+  the `[this+0x4c]`/`[this+0x48]` ids are transient and never one of the six; the object is NOT findable by
+  a vtable-pointer scan (its primary vptr `0x1200e5f8` was never scanned; `0x1200e620` is a secondary
+  subobject at primary+0x28). `[service+0x8c0]` (co-op playlist) stays `0x0` even inside a loaded single-player
+  world, and the co-op UI is gated by the Ubisoft network service, which is unavailable offline (the game
+  shows "the network game service is no longer available" and aborts the mode change).
+
+Revised Phase-2 direction:
+- **Do not pursue H3a.** The id-setter does not enter co-op.
+- **H3b (populate) alone is likely insufficient too**: even with `[service+0x8c0]` built, no offline caller
+  drives `[this+0x48]` into a co-op world because the netplay prerequisite is missing.
+- **New primary lead H4: capture a real co-op join ONLINE** (owner plays a genuine 2-player co-op join while
+  the trace is attached), record the dispatcher-virtual call sequence + the playlist-service/netplay state
+  that accompanies it, and reconstruct that sequence for offline/4p. Static xrefs can't reach the transition
+  entry (indirect vtable call), so runtime evidence of a *successful* join is the only reliable map.
+- Secondary (optional): find consumers of `[this+0x48]` offline to see whether any single function performs
+  the world/session bring-up given a co-op target id.

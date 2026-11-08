@@ -156,3 +156,39 @@ Open before either hook is real (tracked in NOTES): the caller of vmethod `0x11a
 `.rdata 0x1200ad00` table is resolved — `CFCXPlaylistService`; `0x11bd2b04` is resolved — an init
 table, not a vtable). Until the `0x11a58700` caller is known, the hooks are write-after-init
 experiments, not stable detours.
+
+
+## Hook status after sessions 5–6 (added 2026-11-08, agent; supersedes the H1 framing above)
+
+NOTES 2026-11-08 (sessions 5 and 6, probes `p300`–`p315`) changed the read on the co-op switch. This
+addendum overrides the H1 framing in the section above; the addresses there stay valid, the *choice of
+variable to poke* is what is now wrong.
+
+- **H1 is demoted: writing `[0x12891ca0]`/`[0x12891ca8]` (`0x43521e6f`) cannot switch the live mode.**
+  Those two globals are function-local `static const` query-key constants (init-stamp bytes
+  `[0x12891ca4]`/`[0x12891cac]`), each referenced by exactly 3 sites in `.text`, all inside the install
+  routines `0x11279910` / `0x11279a2b`. No gameplay/dispatch code reads them by address. Scribbling them
+  from an ASI only edits the constants the installer uses as lookup keys, so H1 is **inconclusive by
+  construction** (the engine already keeps `0x43521e6f` there). Safe to leave as a diagnostic, but it is
+  not the lever.
+- **The live current-mode id is the mode-manager field `[this + 0x4c]`** (`this` in `ebx`), not a global.
+  Dispatch at `FC3.dll 0x113405a0` reads it and compares against six mode-hash ids —
+  `0xab4fc8e2, 0x43521e6f`(CO-OP)`, 0x9991daec, 0x6c2b3868, 0xf66ffb87, 0x2100ced7` (three chains at
+  `0x113405a0`, `0x11340622`, `0x11340a25`). All six route to the main-menu / `IngameToLobby` block;
+  `0x2100ced7` is the one id that also drives per-world loading textures (`CustomMap`,
+  `UI\Multiplayer\Textures\Menu\Loading\Worlds\`).
+- **The live co-op session state is the playlist-service container `[service + 0x8c0]`**, service =
+  `CFCXPlaylistService` singleton (instance global `0x12863890`, getter `0x103d1640`). The co-op session is
+  a `PrivateCoopPlaylist` (`0x11fab710`) entry in that container. `0x43521e6f` is referenced at 11 `.text`
+  sites (the real consumers) — see NOTES session 5.
+
+Revised Phase-2 lead (supersedes "force the co-op id at startup"):
+
+- **H3 — new primary.** Runtime trace (owner's debugger, no static alternative found): break on the writer
+  of mode-manager `[this + 0x4c]` to learn who sets the live mode and on what, and walk `[service + 0x8c0]`
+  to read the live playlist container. This is the only path to forcing a local co-op session; the offline
+  global pokes are exhausted.
+- **H1 — keep only as a safe diagnostic.** Leave the install-globals write in the probe purely to confirm
+  the chain runs; it is not expected to change behaviour.
+- **Still blocked:** naming the five non-coop mode-hash ids needs the custom Dunia id-hash recovered
+  (FNV/djb2/sdbm/murmur all rejected) or the `GameModesConfig.xml` name↔id table; not offline-crackable.

@@ -265,3 +265,17 @@ observe offline (`svc+0x8c0` stays `0x0` in-world, netplay offline-disabled), so
 `"Coop_Fenrir_Loading"` and then has nothing to load. H4 stays the only path to a real transition; a
 secondary offline probe (`FUN_11340d00` core + whether a fake descriptor can pass `FUN_1011cb30`) is
 the remaining offline lead.
+
+### Session 8e update (offline H4b: the mode layer is not offline-locked)
+
+The co-op transition functions are NOT netplay-gated. `FUN_1011cb30` is a trivial
+"descriptor `+0xC` string empty?" predicate (30+ generic callers), not an availability gate.
+`FUN_11340d00` is a thin guard wrapper: if `[this+0x19]==0` it refcounts the id/descriptor, calls the
+loader `FUN_113409d0`, and sets `[this+0x70]=1` - no network code. The load handoffs `FUN_117872f0`
+(resolves a world string from global `DAT_12804324`) and `FUN_103a2d50` (a `keyPair` hash-table find)
+are generic engine helpers. So the offline blocker is **missing inputs, not a hard check**: a valid
+`param_3` co-op descriptor (its class/vtable + `+0xC` name-string not yet mapped) plus coherent session
+globals (`DAT_12804acc+0x6c` flag, `+0x68` handle, `DAT_12804324` world string). Offline co-op is not
+precluded at the mode layer; whether a hand-built descriptor gives a *playable* world needs a live
+test. Next offline lead: map the descriptor object class (online-lobby producer), or test if a
+single-player world string in `DAT_12804324` lets `FUN_117872f0` resolve a loadable map.

@@ -192,3 +192,31 @@ Revised Phase-2 lead (supersedes "force the co-op id at startup"):
   the chain runs; it is not expected to change behaviour.
 - **Still blocked:** naming the five non-coop mode-hash ids needs the custom Dunia id-hash recovered
   (FNV/djb2/sdbm/murmur all rejected) or the `GameModesConfig.xml` name↔id table; not offline-crackable.
+
+
+## Hook status after session 7 (added 2026-11-08, agent; refines H3 above - now static, not trace-only)
+
+Session 7 exported pseudocode from the offline Ghidra project `FC3_106` (see NOTES.md session 7). This
+upgrades H3: the switch mechanism is now pinned statically; the runtime trace shrinks to just grabbing
+the mode-manager `this` pointer.
+
+- **The "switch to mode" virtual method is `modeManager->vtable[+0x5c]`** (called as
+  `(**(code **)(*param_1 + 0x5c))(&id)` inside `FUN_11340560`, body `[0x11340560,0x113409cd]`). The
+  dispatcher reads `[this+0x4c]` (confirms the session 5-6 finding), remaps any of the six ids to the
+  **lobby id `0x63ddbbcb`** when the destination string is `FUN_11788030("FCXMainMenu")`, then calls
+  that virtual. `[this+0x74]` gates the per-world loading-texture branch.
+- **Populate a co-op session without the UI:** `FUN_1127a0f0(service)` (service `this`) builds the
+  `[service+0x8c0]` container via `FUN_1025f3f0`, then runs the installer `FUN_11279910`, which looks
+  the co-op entry up **by key `0x43521e6f`** through `FUN_113224e0` and Adds it into the container with
+  `container->vtable[+0x5c]`. Confirms `[service+0x8c0]` is live (populated at runtime, not dead).
+- **Correction to the singleton note:** `FUN_103d1640` returns `&DAT_12863890` - the instance is the
+  object AT `0x12863890` (C++ magic-static guarded by `0x1286388c`), NOT a pointer stored there. So
+  `service this = module.base + (0x12863890 - 0x10000000)` directly; do not `readPointer()` it. Fixed in
+  `scripts/fc3_h3_trace.js`.
+
+Revised Phase-2 levers (both now static):
+- **H3a - switch mode:** write `[modeManager+0x4c] = 0x43521e6f` and call `modeManager->vtable[+0x5c]
+  (0x43521e6f)`. Need only the live `modeManager this` (one Frida read of `ebx` at `0x113405a0`).
+- **H3b - populate session:** call `FUN_1127a0f0` (or the finer `FUN_113224e0`(0x43521e6f) then
+  `container->vtable[+0x5c]`) on the playlist service to inject the co-op entry.
+- Still blocked: naming the five sibling mode-hash ids (custom hash not recovered).

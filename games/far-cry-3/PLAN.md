@@ -250,3 +250,18 @@ Revised Phase-2 direction:
   entry (indirect vtable call), so runtime evidence of a *successful* join is the only reliable map.
 - Secondary (optional): find consumers of `[this+0x48]` offline to see whether any single function performs
   the world/session bring-up given a co-op target id.
+
+### Session 8d update (offline H4b result)
+
+Offline search (FindModeConsumers/DecompileConsumers over FC3_106) located the real co-op
+mode bring-up: **`FUN_10fa1990`** (`__thiscall` on the mode-manager; transition core
+`FUN_11340d00`). On the co-op id `0x43521e6f` it logs `"Coop_Fenrir_Loading"`. Besides `this` it
+needs a wrapped co-op id (`param_2`), a co-op **descriptor** (`param_3`, map/world name string at
+`+0xC`, checked by `FUN_10003f00`), the availability predicate **`FUN_1011cb30()`** to be true, and a
+live session handle at `DAT_12804acc+0x68` / playlist `svc+0x8c0`. Mode-manager primary vtable
+`0x1200e5f8` (ctor `FUN_10fa1eb0`; +0x50 getter, +0x5c id-swizzle, +0x60 dispatcher confirmed).
+**Offline verdict:** the descriptor and the session/playlist come from the online lobby we cannot
+observe offline (`svc+0x8c0` stays `0x0` in-world, netplay offline-disabled), so `FUN_10fa1990` reaches
+`"Coop_Fenrir_Loading"` and then has nothing to load. H4 stays the only path to a real transition; a
+secondary offline probe (`FUN_11340d00` core + whether a fake descriptor can pass `FUN_1011cb30`) is
+the remaining offline lead.

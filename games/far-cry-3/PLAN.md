@@ -279,3 +279,29 @@ globals (`DAT_12804acc+0x6c` flag, `+0x68` handle, `DAT_12804324` world string).
 precluded at the mode layer; whether a hand-built descriptor gives a *playable* world needs a live
 test. Next offline lead: map the descriptor object class (online-lobby producer), or test if a
 single-player world string in `DAT_12804324` lets `FUN_117872f0` resolve a loadable map.
+
+
+### Refinement after session 8f - the descriptor object IS mapped (offline Ghidra)
+
+The "class/vtable + name-string not yet mapped" gap above is now resolved:
+
+- Mode-change enters as `modeManager->vtable[+0x0C](destId, descriptor)` - `FUN_10fa1990` is the
+  primary-vtable `0x1200e5f8` slot `+0x0C` (virtual; no static caller).
+- The `param_3` **descriptor is an entry of the global mode-list singleton `DAT_128048c0`**, not a
+  per-call object. Entry layout: `+0x00` intrusive refcount, `+0x0C` name string (`char*`),
+  `+0x20` mode-id dword. `FUN_113409d0` finds it by linearly scanning the singleton's array
+  (`DAT_128048c0` -> `+0x04` data, `+0x08` size) for the entry with `+0x20 == targetId`, then stores it
+  at `[mgr+0x90]` and re-dispatches via `mgr->vtable[+0x60]`.
+- Singleton lifecycle: ctor `FUN_10048230` (lazy, factory `FUN_118db560`, list-manager vtable
+  `0x11f224c4`), teardown `FUN_11756e00` (shutdown; also nulls `DAT_12804acc`). Actual entry registration
+  is via the list-manager vtable `0x11f224c4` (virtual adder - not statically resolvable).
+
+So a hand-built co-op descriptor = an object with `+0x20 = 0x43521e6f` and `+0x0C = a co-op world/map
+name`, present in the `DAT_128048c0` list, then invoked via `mgr->vtable[+0x0C]`.
+
+**Decisive open question (now a cheap LIVE check, not more static work):** does the running DX9 game,
+offline, already contain a `+0x20 = 0x43521e6f` entry in the `DAT_128048c0` list? If yes -> hand-drive
+`vtable[+0x0C]` with that live entry (no online needed). If no -> registering the co-op entry (the
+`0x11f224c4` adder, fed by the online/netplay bootstrap) is the real offline gate, and the path is to
+call that adder ourselves with a fabricated entry. Added a `modes` command (`dumpModes` RPC) to
+`scripts/fc3_h3_run.py` to answer this on the next live session.

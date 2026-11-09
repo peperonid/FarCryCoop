@@ -305,3 +305,29 @@ offline, already contain a `+0x20 = 0x43521e6f` entry in the `DAT_128048c0` list
 `0x11f224c4` adder, fed by the online/netplay bootstrap) is the real offline gate, and the path is to
 call that adder ourselves with a fabricated entry. Added a `modes` command (`dumpModes` RPC) to
 `scripts/fc3_h3_run.py` to answer this on the next live session.
+
+### Refinement after sessions 8g-8i - descriptor present offline, but the real blocker is the netplay session object
+
+The decisive live check above is ANSWERED: offline, the running DX9 game's `DAT_128048c0` singleton
+**already contains 16 entries including a `+0x20 == 0x43521e6f` CO-OP entry** (see NOTES session 8g).
+So the co-op descriptor/registry is NOT the gate, and calling the entry's `mgr->vtable[+0x0C]`
+(`FUN_10fa1990`) with that live entry is safe (no crash) but does **not** flip `[mgr+0x4c]` (session 8h).
+
+Sessions 8i mapped the full call topology (offline FC3_106 + live reads):
+
+- `vtable[+0x0C]` (`FUN_10fa1990`) -> enqueue `FUN_11340d00` -> loader `FUN_113409d0`. The loader keys
+  its CO-OP branch off the **pending destination stored at `mgr + 0x48`** (not an argument), and only
+  runs when `FUN_10fa1990`'s netplay gate `*(DAT_12804acc + 0x6c) != 0` is set.
+- Live `netgate`: **`DAT_12804acc + 0x6c == 1` offline** - the "co-op session available" gate is OPEN, so
+  it is not an offline lock either.
+- Writing `mgr + 0x48 = 0x43521e6f` and calling the loader directly from the Frida thread sets the
+  loader's "loading" flag but still does **not** flip the current mode - the world/session bring-up is a
+  later main-thread step that consumes a real co-op **session object**.
+
+**Revised verdict / plan:** the mode-change subsystem and its CO-OP code path are fully present and
+statically/dynamically reachable offline; the id gate, the descriptor registry, and the availability gate
+are all NOT blockers. The single remaining blocker on any offline 4p route is the **netplay/session
+object** that the main-thread loader step expects and that only a netplay join constructs. Any further
+offline progress therefore means reverse-engineering and constructing that session object (the netplay
+layer), which is the new critical path. Online capture (H4) remains the fastest route to a real
+transition if the owner can reach online co-op.

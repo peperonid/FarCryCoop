@@ -331,3 +331,34 @@ object** that the main-thread loader step expects and that only a netplay join c
 offline progress therefore means reverse-engineering and constructing that session object (the netplay
 layer), which is the new critical path. Online capture (H4) remains the fastest route to a real
 transition if the owner can reach online co-op.
+
+### Session 9 update (offline Ghidra FC3_106: the netplay/session object is mapped)
+
+Session 9 traced the session object the main-thread loader step consumes and whether it can be
+built offline. The chain (1.06 RVAs, see NOTES session 9):
+
+- Loader `FUN_113409d0` -> hashmap probe `FUN_103a2d50` (bucket count `+0x8`, array `+0xC`, key
+  hash `key ^ 0xdeadbeef` folded by `ldiv(_,0x1f31d)`); real dispatch only when the hit node's
+  `+0x10` value object is non-null, else it falls to the offline/local path `FUN_113400f0`.
+- Mode-change handler `FUN_10fa1990` reads the active session via `FUN_103a9ea0(*(DAT_12804acc +
+  0x68))`; the CO-OP branch needs the session's kind in `{DAT_1216ca90, DAT_1216ca9c}` and
+  `session+0x8c` (host) `!= -1` and `session+0x90` (member) `!= -1`, then `FUN_111854f0(host,
+  member)` and `FUN_110252d0(game, _)` which reads a populated player roster (`+0x50/+0x54` slot
+  indices `-1`=empty, `+0x70` player array stride `0x1c`, `+0x74` count).
+- The session **container/provider** slot `DAT_12804acc + 0x68` has exactly ONE writer:
+  `FUN_10044000`, which builds it at boot from a factory (`FUN_1177f7c0`/`FUN_118db560`), sets its
+  vtable `PTR_FUN_11f3b260`, and installs it (factory can return null -> slot = 0).
+- Live offline read (`sessions` RPC): the availability byte is open but the session list reads as
+  garbage/unset - there are **no session entries offline**.
+
+**H4b verdict (offline): NOT constructible by id/field poking.** The provider exists at boot, but the
+session entries, the player roster, and the hashmap records are produced only by the **netplay join
+handshake**; there is no local/menu adder. So offline 4p co-op entry via mode-field manipulation is
+sufficient up to the loader gate but cannot clear it.
+
+**New critical path H5 (netplay layer):** reverse-engineer what populates the provider's session array
+at join, and evaluate the hub playbook's **fake-world / emulated-local-server** route (playbook
+`fake-world-testing.md`, `networking.md`) to satisfy `FUN_103a9ea0`'s predicate (a session with
+`info+0x4 > 3`, matching service identity, co-op kind, host/member ids `!= -1`) and a 4-slot player
+roster offline. Online capture (H4) remains the fastest route to one real transition if the owner can
+reach online co-op.

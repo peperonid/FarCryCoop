@@ -434,3 +434,11 @@ map, not the campaign `fc3_main` (OpenWorld220 patches `mpdlc1_aegir`->`fc3_main
 hook); (H7b) real peers - `uplay_r14.dll` returns a self-only session, so extend the UPLAY_* emulator (its `UPLAY_USER_SetGameSession`,
 `UPLAY_FRIENDS_*`, IPC pipes `uplay_ipc_pipe_`/`uplay_api_process_ipc_pipe_`) to broker multiple real peers, per hub
 `fake-world-testing`/`networking`. See NOTES session 13b.
+
+### Session 16 update — OpenWorld (campaign world) deprioritized; H7b is the active critical path
+
+Live test result (owner, 2026-11-09): with OpenWorld 1.5 installed on the 1.06-base junction copy, co-op did not load the open island (after the intro the stock co-op browser/mission appeared, no ROOK ISLANDS chapter option offline). Confirmed: OpenWorld is a **retail-1.05 total conversion** and an **online** co-op mod; it cannot run by dropping files onto a 1.06 base, and it is not an offline 4-player enabler. **Decision: deprioritize the "campaign world via OpenWorld" line.** A faithful OpenWorld test would need a genuine full 1.05 install as the base (`H:\FarCryCoop\Downloads\FarCry3-105`) — a separate, still single/online experiment.
+
+State after the agent's revert: `TestFC3_105` = **1.06 base + solo262 offline-coop loaders (`uplay_r1_loader` `dacd14c0`, `uplay_r14`) + island**, i.e. the session-13b working milestone; owner confirmed the island offline solo co-op boots again. Rollback artifacts: `H:\FarCryCoop\scratch\backup_pre_openworld\`.
+
+**Active critical path = H7b (4-player offline co-op on the island).** `uplay_r14.dll` currently brokers a self-only session; the goal is to extend its Uplay/orbit emulator so it brokers multiple real local peers. Concrete targets in `uplay_r14.dll` (offline Ghidra project `FC3_uplayr14`, `out\uplayr14_imports.txt`): `UPLAY_USER_SetGameSession`, `UPLAY_FRIENDS_*`, `UPLAY_CHAT/PARTY_Init`, and the local IPC pipes `uplay_ipc_pipe_`/`uplay_api_process_ipc_pipe_`. Method per hub `fake-world-testing` and `networking`: instrument the emulator's session/friends surface, determine where a second peer would join, and test multi-instance (per `multi-instance-testing`). See NOTES session 16.

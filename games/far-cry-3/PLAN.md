@@ -422,3 +422,15 @@ SetGameSession`, `UPLAY_FRIENDS_*`, `UPLAY_CHAT/PARTY_Init`, `UPLAY_SetGameSessi
 netplay layer" step from session 9. Live-test runbook: `docs/solo-coop-test.md` / `.ru.md` in the
 FC3Coop repo. NEXT: owner runs the admin C: copy, launches via upc, verifies `uplay_r14.dll` is loaded
 (`fc3_probe_modules.py`), and reports the solo co-op entry; then plan the 4-peer extension of the emulator.
+
+
+### Session 13b update - MILESTONE: offline solo co-op works on the copy
+
+Owner completed the admin C: step and launched via upc, then reported (2026-11-09): "ЗАпустил соло кооп он работает".
+So H6 step 3 is DONE end-to-end on `TestFC3_105` (1.05 + solo262): the full offline solo co-op path is reproduced
+(stub launcher -> junction `H:\Uplay\Far Cry 3` -> upc Play -> `uplay_r1_loader.dll` -> `uplay_r14.dll`). The offline
+co-op path is now PROVEN. Next critical path = 4-player CAMPAIGN co-op: (H7a) the map - solo262 runs the stock co-op
+map, not the campaign `fc3_main` (OpenWorld220 patches `mpdlc1_aegir`->`fc3_main`; port that idea or find the map-select
+hook); (H7b) real peers - `uplay_r14.dll` returns a self-only session, so extend the UPLAY_* emulator (its `UPLAY_USER_SetGameSession`,
+`UPLAY_FRIENDS_*`, IPC pipes `uplay_ipc_pipe_`/`uplay_api_process_ipc_pipe_`) to broker multiple real peers, per hub
+`fake-world-testing`/`networking`. See NOTES session 13b.

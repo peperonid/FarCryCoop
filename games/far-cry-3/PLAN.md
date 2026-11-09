@@ -362,3 +362,30 @@ at join, and evaluate the hub playbook's **fake-world / emulated-local-server** 
 `info+0x4 > 3`, matching service identity, co-op kind, host/member ids `!= -1`) and a 4-slot player
 roster offline. Online capture (H4) remains the fastest route to one real transition if the owner can
 reach online co-op.
+
+### Session 10 update (community co-op mods acquired; offline co-op proven on 1.05)
+
+The owner supplied two working offline co-op mods (Nexus 220 **OpenWorldCo-op** Patch 1.5 and Nexus
+262 **solo_offline_coop** v1.01, both 1.05-based) and a vanilla 1.05 Bin downgrade. Built a separate
+vanilla **1.05** install at `H:\FarCryCoop\TestFC3_105` from the 1.06 TestFC3 copy (robocopy tree +
+bin `/MIR`; the 1.05->1.06 update is Bin-only, game data kept). Key facts (see NOTES session 10):
+
+- **Offline co-op on 1.05 is proven.** solo262 starts a solo player alone in a Co-op session
+  (Private/Public/Local) offline, and its `FC3.dll` is **byte-identical to vanilla 1.05** - the whole
+  trick is in the Uplay loader-shim chain: the **4.8 MB `uplay_r14.dll`** is the offline co-op session
+  emulator (it is not in the vanilla Bin). This is exactly the netplay-session blocker from session 9.
+- **OpenWorld220** patches `FC3.dll` (100 bytes): the core change rewrites the co-op session map
+  string `mpdlc1_aegir` -> **`fc3_main`** (run co-op on the campaign world) at file offset
+  `0x15345D0`, plus two NOP-5 -> `CALL` hooks (`0x8C406B`, `0x8C5036`) and ~20 float tuning constants.
+
+**Revised plan / new critical path H6 (study + port the community co-op mechanism):**
+1. Build a Ghidra `FC3_105` project; locate the `mpdlc1_aegir`/co-op-session-string writer and the
+   `uplay_r1_loader.dll` hook chain, and the two OpenWorld220 hook target routines.
+2. Reverse `uplay_r14.dll` (the offline co-op emulator): enumerate which Uplay/orbit session APIs it
+   stubs to satisfy the game's co-op session predicate offline.
+3. Reproduce solo262 solo-offline co-op on `TestFC3_105` (offline direct launch of `farcry3.exe` with
+   the mod's loader set), then design the **4-player / campaign co-op** extension by combining the
+   loader-shim session emulation (solo262) with the map/world override (OpenWorld220) and our 1.06
+   mode-manager/loader map.
+Online capture (H4) and the 1.06 netplay layer (H5) remain fallbacks; the 1.05 mod route is now the
+leading offline path.

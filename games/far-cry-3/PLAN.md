@@ -389,3 +389,14 @@ bin `/MIR`; the 1.05->1.06 update is Bin-only, game data kept). Key facts (see N
    mode-manager/loader map.
 Online capture (H4) and the 1.06 netplay layer (H5) remain fallbacks; the 1.05 mod route is now the
 leading offline path.
+
+### Session 11 update (H6 step 3 boot prep done; session entry pending one manual run)
+On `TestFC3_105` the direct offline launch (`farcry3.exe`, `DETACHED_PROCESS` 0x8, cwd=`bin`) works:
+a `Far Cry(R) 3` 1920x1080 window is present and the game process stays alive. Installing the
+solo262 loader set (`uplay_r1_loader.dll` -> `dacd14c07775`, `uplay_r14.dll` -> `6c75cb01cef6`
+placed in `bin`; `ubiorbitapi_r2_loader.dll` already `ba6015e566c9`; `FC3.dll`/`FC3_d3d11.dll` left
+vanilla since the mod does not patch them) keeps that boot green. So H6 step 3 is prepared: the
+loader swap is installed and startup is verified. The only remaining sub-step is the manual
+in-menu entry into a solo co-op session (Play -> Co-op -> Private Session -> Start), which the
+harness cannot drive on a fullscreen-exclusive game; the vanilla loader set is restorable from
+`TestFC3_105\bin_backup_vanilla105\`. See NOTES session 11.

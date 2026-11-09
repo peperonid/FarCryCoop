@@ -400,3 +400,25 @@ loader swap is installed and startup is verified. The only remaining sub-step is
 in-menu entry into a solo co-op session (Play -> Co-op -> Private Session -> Start), which the
 harness cannot drive on a fullscreen-exclusive game; the vanilla loader set is restorable from
 `TestFC3_105\bin_backup_vanilla105\`. See NOTES session 11.
+
+
+### Session 13 update (solo262 fully installed on the 1.05 copy; uplay_r14 = fake Uplay platform)
+
+The owner authorised the C: write and the 1.05 downgrade. `TestFC3_105` is now the mod's 1.05 state
+(all md5-verified): bin `FC3.dll` 5ff045331557, `FC3_d3d11.dll` 46bcc0975905, `uplay_r1_loader.dll`
+dacd14c07775, `ubiorbitapi_r2_loader.dll` ba6015e566c9, `uplay_r14.dll` 6c75cb01cef6; data_win32
+`patch.dat` 212,002,032 B (md5 157f2d7682a5) + `patch.fat` 850412635760. The pre-mod 1.06 is backed
+up in `TestFC3_105\_backup_106_before_solo262\`. Key mechanism finding: `farcry3.exe`/`farcry3_d3d11.exe`
+are Ubisoft Connect stub launchers; the copy is made to run via an NTFS junction
+`H:\Uplay\Far Cry 3` -> `TestFC3_105` so upc's Play launches the copy (reversible: `use_copy_junction.bat`
+/ `undo_junction.bat`). On 1.06 `uplay_r14.dll` is never reached (farcry3 loads `uplay_r1.dll` directly) -
+which is exactly why the mod needs 1.05. The remaining install sub-step, `uplay_r14.dll` into
+`C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\`, needs Administrator (script
+`install_uplay_r14_launcher.bat`; rollback = delete the file). Offline Ghidra of `uplay_r14.dll`
+(project `FC3_uplayr14`, `out\uplayr14_imports.txt`) shows it is a complete in-process Uplay/orbit SDK
+emulator: it exports the whole UPLAY_* surface (`UPLAY_Startup`, `UPLAY_USER_GetTicketUtf8/GetProfile/
+SetGameSession`, `UPLAY_FRIENDS_*`, `UPLAY_CHAT/PARTY_Init`, `UPLAY_SetGameSession`) over local IPC pipes
+- it replaces the Ubisoft backend with a fake platform. This is the concrete form of the "emulate the
+netplay layer" step from session 9. Live-test runbook: `docs/solo-coop-test.md` / `.ru.md` in the
+FC3Coop repo. NEXT: owner runs the admin C: copy, launches via upc, verifies `uplay_r14.dll` is loaded
+(`fc3_probe_modules.py`), and reports the solo co-op entry; then plan the 4-peer extension of the emulator.

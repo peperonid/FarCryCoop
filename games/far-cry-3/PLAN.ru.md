@@ -410,3 +410,25 @@ solo262 (`uplay_r1_loader.dll` -> `dacd14c07775`, `uplay_r14.dll` -> `6c75cb01ce
 через игровое меню (Play -> Co-op -> Private Session -> Start), который харнес выполнить на
 полноэкранной exclusive-игре не может; ванильный набор лодеров восстанавливается из
 `TestFC3_105\bin_backup_vanilla105\`. См. NOTES, сессия 11.
+
+
+### Обновление сессии 13 (solo262 полностью установлен на копии 1.05; uplay_r14 = фейковая платформа Uplay)
+
+Владелец разрешил запись на C: и понижение до 1.05. `TestFC3_105` теперь в состоянии мода 1.05
+(все md5 сверены): bin `FC3.dll` 5ff045331557, `FC3_d3d11.dll` 46bcc0975905, `uplay_r1_loader.dll`
+dacd14c07775, `ubiorbitapi_r2_loader.dll` ba6015e566c9, `uplay_r14.dll` 6c75cb01cef6; data_win32
+`patch.dat` 212 002 032 Б (md5 157f2d7682a5) + `patch.fat` 850412635760. 1.06 до мода сохранён в
+`TestFC3_105\_backup_106_before_solo262\`. Ключевая находка по механизму: `farcry3.exe`/`farcry3_d3d11.exe`
+— это заглушки-лаунчеры Ubisoft Connect; копию заставляют запускаться через NTFS junction
+`H:\Uplay\Far Cry 3` -> `TestFC3_105`, так что Play в upc запускает копию (обратимо: `use_copy_junction.bat`
+/ `undo_junction.bat`). На 1.06 до `uplay_r14.dll` дело не доходит (farcry3 грузит `uplay_r1.dll` напрямую) —
+потому моду и нужен 1.05. Оставшийся подшаг установки — `uplay_r14.dll` в
+`C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher\` — требует прав администратора (скрипт
+`install_uplay_r14_launcher.bat`; откат = удалить файл). Офлайн Ghidra `uplay_r14.dll` (проект
+`FC3_uplayr14`, `out\uplayr14_imports.txt`) показывает, что это полный внутрипроцессный эмулятор SDK
+Uplay/orbit: он отдаёт всю поверхность UPLAY_* (`UPLAY_Startup`, `UPLAY_USER_GetTicketUtf8/GetProfile/
+SetGameSession`, `UPLAY_FRIENDS_*`, `UPLAY_CHAT/PARTY_Init`, `UPLAY_SetGameSession`) поверх локальных
+IPC-каналов — заменяет бэкенд Ubisoft фейковой платформой. Это конкретная форма шага «эмулировать сетевой
+слой» из сессии 9. Руководство живого теста: `docs/solo-coop-test.md` / `.ru.md` в репо FC3Coop. ДАЛЕЕ:
+владелец делает шаг C: от администратора, запускает через upc, проверяет загрузку `uplay_r14.dll`
+(`fc3_probe_modules.py`) и сообщает про заход в соло-кооп; затем план расширения эмулятора до 4 пиров.
